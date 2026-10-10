@@ -141,6 +141,9 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
       tail.push(`<button class="row-btn cal${item.plan ? ' on' : ''}" data-act="item-plan" data-id="${item.id}" aria-label="In den Kalender einplanen" title="Einplanen">${ICON.calendar}</button>`);
     }
     tail.push(`<button class="row-btn clip${noteTitle ? ' on' : ''}" data-act="item-link" data-id="${item.id}" aria-label="Notiz verknüpfen" title="Notiz verknüpfen">${ICON.clip}</button>`);
+    // Direkt ins Archiv bzw. in den Memory – dieselbe Aktion wie Wischen nach links
+    const ra = itemRightAction(list);
+    tail.push(`<button class="row-btn arch" data-act="item-archive" data-id="${item.id}" aria-label="${ra.label}" title="${ra.label}">${ICON.archive}</button>`);
   }
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
   else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
@@ -523,16 +526,16 @@ function handleSwipeAction(id, dir, mode) {
   if (rec.kind === 'item') {
     const name = rec.text || 'Punkt';
     if (mode === 'restore' && dir === 'left') {   // Wiederherstellen (Archiv)
-      db.update(id, { state: 'active', archivedAt: 0, memoryAt: 0 });
-      haptic(10);
-      S.toast('Wiederhergestellt');
+      S.restoreItem(id);                           // ganze Gruppe inkl. Unterpunkten
       return;
     }
     if (dir === 'left') {           // Memory (oder Archiv bei einfacher Liste)
       const list = db.byId(rec.listId);
       if (list?.template === 'simple') {
-        db.update(id, { state: 'archived', archivedAt: Date.now(), originTitle: list.title || 'Liste' });
-        S.undoToast('Ins Archiv verschoben', () => db.update(id, { state: 'active', archivedAt: 0 }));
+        const ids = [id, ...db.childIds(id)];      // Unterpunkte wandern mit
+        const now = Date.now();
+        ids.forEach((x, i) => db.update(x, { state: 'archived', archivedAt: now + i, originTitle: list.title || 'Liste' }));
+        S.undoToast('Ins Archiv verschoben', () => ids.forEach((x) => db.update(x, { state: 'active', archivedAt: 0 })));
       } else if (db.getSetting('memoryEnabled')) {
         S.toMemory(id);
       } else {
@@ -551,6 +554,10 @@ function handleSwipeAction(id, dir, mode) {
 function restoreListOrNote(id) {
   db.update(id, { deleted: 0 });
 }
+
+/** Archiv-Button in der Punktzeile: gleiche Aktion wie Wischen nach links
+    (Memory, bzw. Archiv bei einfacher Liste oder deaktiviertem Memory). */
+export const archiveItemAction = (id) => handleSwipeAction(id, 'left', 'list');
 
 /* ---------------- Punkte-Aktionen ---------------- */
 

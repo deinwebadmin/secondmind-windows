@@ -221,8 +221,9 @@ export function renderArchive() {
       }
       html += `<div class="year-head">${y}</div>`;
       for (const [key, its] of byList) {
+        const { tops, kidsOf } = splitGroups(its);
         html += `<div class="archive-group"><div class="ag-title">${esc(key)}</div>`;
-        html += its.map((it) => archiveRow(it, 'archiv')).join('');
+        html += tops.map((it) => archiveRow(it, 'archiv', kidsOf(it.id))).join('');
         html += `</div>`;
       }
     }
@@ -232,7 +233,7 @@ export function renderArchive() {
   bindSwipes(view());
 }
 
-function archiveRow(it, mode) {
+function archiveRow(it, mode, kids = []) {
   const right = mode === 'memory'
     ? `<div class="swipe-act right restore">${ICON.restore}<span>Zurück</span></div>`
     : `<div class="swipe-act right restore">${ICON.restore}<span>Zurück</span></div>`;
@@ -254,6 +255,15 @@ function archiveRow(it, mode) {
               <button class="item-open" data-act="open-item" data-id="${it.id}">›</button>
             </div>
           </div>
+          ${kids.map((c) => `
+          <div class="item mem sub">
+            <div class="item-body" style="padding-left:18px">
+              <div class="item-text">${esc(c.text || 'Ohne Text')}</div>
+            </div>
+            <div class="item-tail">
+              <button class="item-open" data-act="restore-item" data-id="${c.id}" title="Wiederherstellen">↺</button>
+            </div>
+          </div>`).join('')}
         </div>
       </div>
     </div>`;
@@ -279,11 +289,15 @@ export function renderMemory() {
     <div class="detail-sub">Gesammelte Punkte, nach Jahr sortiert</div>`;
 
   if (!items.length) {
-    return view().innerHTML = html + emptyState('🧠', 'Noch nichts gemerkt', 'Wische Punkte nach links, um sie hier abzulegen.');
+    return view().innerHTML = html + emptyState('🧠', 'Noch nichts gemerkt',
+      'Wische Punkte nach links oder nutze den Archiv-Button in der Punktzeile.');
   }
 
+  // Hauptpunkte mit ihren Unterpunkten bündeln – die Gruppe wird vollständig angezeigt
+  const { tops, kidsOf } = splitGroups(items);
+
   const byYear = new Map();
-  for (const it of items) {
+  for (const it of tops) {
     const y = yearOf(it.memoryAt || it.updatedAt);
     if (!byYear.has(y)) byYear.set(y, []);
     byYear.get(y).push(it);
@@ -292,24 +306,62 @@ export function renderMemory() {
 
   for (const y of years) {
     const group = byYear.get(y).sort((a, b) => (b.memoryAt || 0) - (a.memoryAt || 0));
-    html += `<div class="year-head">${y}</div><div class="group" style="margin-bottom:16px">`;
-    html += group.map((it) => {
-      const list = db.byId(it.listId);
-      return `<div class="item">
-        <div class="item-body" style="padding-left:2px">
-          <div class="item-text">${esc(it.text || 'Ohne Text')}</div>
-          <div class="card-meta">${esc(list && !list.deleted ? list.title : it.originTitle || '')} · ${fmtDate(it.memoryAt || it.updatedAt)}</div>
-        </div>
-        <div class="item-tail">
-          <button class="item-open" data-act="restore-item" data-id="${it.id}" title="Zurück">↺</button>
-          <button class="item-open" data-act="open-item" data-id="${it.id}">›</button>
-        </div>
-      </div>`;
-    }).join('');
-    html += `</div>`;
+    html += `<div class="year-head">${y}</div>`;
+    html += group
+      .map((it) => `<div class="group mem-group">${memGroupHtml(it, kidsOf(it.id))}</div>`)
+      .join('');
   }
 
   view().innerHTML = html;
+}
+
+/** Top-Level-Einträge + Kind-Zuordnung: Kinder hängen an ihrem Hauptpunkt,
+    sofern der Hauptpunkt im selben Status (Memory/Archiv) steht. */
+function splitGroups(items) {
+  const ids = new Set(items.map((i) => i.id));
+  const kids = new Map();
+  const tops = [];
+  for (const it of items) {
+    if (it.parentId && ids.has(it.parentId)) {
+      if (!kids.has(it.parentId)) kids.set(it.parentId, []);
+      kids.get(it.parentId).push(it);
+    } else tops.push(it);
+  }
+  return {
+    tops,
+    kidsOf: (pid) => (kids.get(pid) || []).sort((a, b) => (a.order || 0) - (b.order || 0)),
+  };
+}
+
+/** Zeile in Memory/Archiv: kompletter Text (bricht um statt zu kürzen),
+    plus Notiz-Rückverweis und Termin wie in der Liste. */
+function memRowHtml(it, { sub = false, meta = '' } = {}) {
+  const note = it.noteId ? db.byId(it.noteId) : null;
+  const noteTitle = note && !note.deleted ? (note.title || 'Notiz ohne Titel') : '';
+  const planTag = it.plan?.date
+    ? `<button class="plan-tag" data-act="open-item" data-id="${it.id}" title="Termin">📅 ${it.plan.date.slice(8, 10)}.${it.plan.date.slice(5, 7)}.${it.plan.date.slice(0, 4)}${it.plan.time ? ` · ${esc(it.plan.time)}` : ''}</button>`
+    : '';
+  return `
+    <div class="item mem${sub ? ' sub' : ''}">
+      <div class="item-body" style="padding-left:${sub ? 18 : 2}px">
+        <div class="item-text">${esc(it.text || 'Ohne Text')}</div>
+        ${meta ? `<div class="card-meta">${meta}</div>` : ''}
+        ${noteTitle ? `<button class="linked-note" data-act="open-linked-note" data-id="${note.id}" title="Verknüpfte Notiz öffnen">📝 ${esc(noteTitle)}</button>` : ''}
+        ${planTag}
+      </div>
+      <div class="item-tail">
+        <button class="item-open" data-act="restore-item" data-id="${it.id}" title="Wiederherstellen">↺</button>
+        ${sub ? '' : `<button class="item-open" data-act="open-item" data-id="${it.id}">›</button>`}
+      </div>
+    </div>`;
+}
+
+/** Komplette Memory-Gruppe: Hauptpunkt (mit Quelle/Datum) + Unterpunkte. */
+function memGroupHtml(parent, kids) {
+  const list = db.byId(parent.listId);
+  const src = (list && !list.deleted ? list.title : parent.originTitle) || 'Gelöschte Liste';
+  const meta = `${esc(src)} · ${fmtDate(parent.memoryAt || parent.updatedAt)}`;
+  return memRowHtml(parent, { meta }) + kids.map((c) => memRowHtml(c, { sub: true })).join('');
 }
 
 /* ============================================================

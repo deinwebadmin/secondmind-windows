@@ -18,8 +18,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.5.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.5/secondmind-Setup-1.0.5.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.5-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.5/secondmind-1.0.5-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.6.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.6/secondmind-Setup-1.0.6.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.6-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.6/secondmind-1.0.6-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -119,6 +119,12 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.6
+- **Archiv-Button an jedem Punkt**: Direkt in der Punktzeile (neben Farbe, Kalender und Büroklammer) – verschiebt den Punkt mit einem Tipp ins Memory (bzw. ins Archiv bei Simpel-Listen), inklusive Rückgängig-Toast
+- **Unterpunkte wandern mit**: Wird ein Hauptpunkt ins Memory/Archiv verschoben, gehen alle seine Unterpunkte mit – nichts verschwindet mehr
+- **Memory zeigt Gruppen vollständig**: Hauptpunkte erscheinen mit allen eingerückten Unterpunkten, inklusive Notiz-Rückverweis, Termin und Quelle/Datum; Wiederherstellen (↺) holt immer die ganze Gruppe zurück
+- Dasselbe Gruppen-Layout im Archiv für Simpel-Listen
 
 ### 1.0.5
 - **Intensivere Hintergrundfarben**: Die 15 Hintergrundtöne sind jetzt kräftig gesättigt (Gelb, Orange, Rot, Pink, Violett, Blau, Türkis, Grün, Braun, Grau) – die Kontraste sind klar erkennbar

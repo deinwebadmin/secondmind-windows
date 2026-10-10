@@ -402,17 +402,36 @@ export function archiveItem(itemId) {
   const it = db.byId(itemId);
   if (!it) return;
   const list = db.byId(it.listId);
-  db.update(itemId, { state: 'archived', archivedAt: Date.now(), originTitle: list?.title || it.originTitle || 'Gelöschte Liste' });
+  const now = Date.now();
+  const origin = list?.title || it.originTitle || 'Gelöschte Liste';
+  const ids = [itemId, ...db.childIds(itemId)];        // Unterpunkte wandern mit
+  ids.forEach((x, i) => db.update(x, { state: 'archived', archivedAt: now + i, originTitle: origin }));
   haptic(10);
-  undoToast('In Archiv verschoben', () => db.update(itemId, { state: 'active', archivedAt: 0 }));
+  undoToast('In Archiv verschoben', () => ids.forEach((x) => db.update(x, { state: 'active', archivedAt: 0 })));
 }
 
 export function toMemory(itemId) {
   const it = db.byId(itemId);
   if (!it) return;
-  db.update(itemId, { state: 'memory', memoryAt: Date.now() });
+  const now = Date.now();
+  const ids = [itemId, ...db.childIds(itemId)];        // Unterpunkte wandern mit
+  ids.forEach((x, i) => db.update(x, { state: 'memory', memoryAt: now + i }));
   haptic(10);
-  undoToast('In Memory verschoben', () => db.update(itemId, { state: 'active', memoryAt: 0 }));
+  undoToast('In Memory verschoben', () => ids.forEach((x) => db.update(x, { state: 'active', memoryAt: 0 })));
+}
+
+/** Wiederherstellen: immer die ganze Gruppe – ist der Hauptpunkt noch im
+    Memory/Archiv, kommt er samt allen Unterpunkten zurück (sonst landet
+    der wiederhergestellte Unterpunkt in einer unsichtbaren Leere). */
+export function restoreItem(itemId) {
+  const rec = db.byId(itemId);
+  if (!rec) return;
+  const parent = rec.parentId ? db.byId(rec.parentId) : null;
+  const root = parent && (parent.state === 'memory' || parent.state === 'archived') ? parent.id : itemId;
+  const ids = [root, ...db.childIds(root)];
+  ids.forEach((x) => db.update(x, { state: 'active', archivedAt: 0, memoryAt: 0 }));
+  haptic(10);
+  toast('Wiederhergestellt');
 }
 
 export function deleteItem(itemId) {

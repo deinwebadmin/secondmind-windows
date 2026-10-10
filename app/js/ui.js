@@ -8,6 +8,7 @@ import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChi
 import {
   listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
   bindSwipes, bindItemDrag, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
+  archiveItemAction,
 } from './parts.js';
 import {
   renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
@@ -418,6 +419,11 @@ function handleAction(act, id, el, e) {
       S.openPlanSheet(id);
       return;
 
+    case 'item-archive':
+      e.stopPropagation();
+      archiveItemAction(id);            // Gedächtnis/Archiv inkl. Unterpunkten
+      return;
+
     case 'card-tags':
       e.stopPropagation();
       S.openTagSheet(id);
@@ -478,13 +484,9 @@ function handleAction(act, id, el, e) {
       S.archiveItem(id);
       return;
 
-    case 'restore-item': {
-      const rec = db.byId(id);
-      if (!rec) return;
-      db.update(id, { state: 'active', archivedAt: 0, memoryAt: 0 });
-      S.toast('Wiederhergestellt');
+    case 'restore-item':
+      S.restoreItem(id);                // ganze Gruppe inkl. Unterpunkten
       return;
-    }
 
     case 'add-sub': {
       const item = addChildItem(id);

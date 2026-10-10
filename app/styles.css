@@ -896,7 +896,7 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 .item.done.item-c-yellow { background: rgba(255, 204, 0, .12); }
 .item.done.item-c-red    { background: rgba(255, 59, 48, .08); }
 
-/* Direkt-Buttons in der Punktzeile: Farbe + Büroklammer */
+/* Direkt-Buttons in der Punktzeile: Farbe + Kalender + Büroklammer + Archiv */
 .row-btn {
   width: 28px; height: 28px;
   border-radius: 9px;
@@ -1412,6 +1412,11 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
   letter-spacing: .02em;
 }
 
+/* Memory & Archiv: Gruppenkarte mit vollständig angezeigten Unterpunkten */
+.mem-group { margin-bottom: 10px; }
+.group > .item + .item { box-shadow: inset 0 .5px 0 var(--separator); }
+.item.mem .item-text { overflow: visible; text-overflow: clip; }
+
 /* ---------- Responsive ---------- */
 
 @media (max-width: 430px) {
@@ -1420,6 +1425,11 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
   .detail-actions { gap: 0; }
   .detail-actions .icon-btn { width: 32px; height: 32px; font-size: 14.5px; }
   .detail-actions .icon-btn svg { width: 19px; height: 19px; }
+  /* Punktzeile: vier Direkt-Buttons + Pfeil schmaler, damit Text Platz behält */
+  .item-tail { gap: 4px; padding-left: 4px; }
+  .row-btn { width: 25px; height: 25px; border-radius: 8px; }
+  .row-btn svg { width: 15px; height: 15px; }
+  .item-open { width: 21px; font-size: 12px; }
 }
 
 @media (min-width: 700px) {
