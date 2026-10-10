@@ -4,13 +4,13 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
-import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex } from './util.js';
+import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChip } from './util.js';
 import {
   listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
   bindSwipes, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
 } from './parts.js';
 import {
-  renderNote, renderArchive, renderMemory, renderSettings, emptyState, exportData, applyTheme, releasePreview,
+  renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
 } from './views.js';
 import { navigate, parse } from './router.js';
 
@@ -35,6 +35,7 @@ export function render() {
     case 'archiv': renderArchive(); break;
     case 'memory': renderMemory(); break;
     case 'einstellungen': renderSettings(); break;
+    case 'kalender': renderCalendar(); break;
     default:
       if (query) renderSearch();
       else renderHome();
@@ -66,6 +67,7 @@ function updateTabs(name) {
     const r = a.dataset.route;
     a.classList.toggle('active', (r === 'home' && name === 'home') || r === name);
   });
+  document.getElementById('calBtn')?.classList.toggle('active', name === 'kalender');
 }
 
 /* ============================================================
@@ -242,7 +244,11 @@ function renderList(id) {
       <div class="spacer"></div>
       <div class="detail-actions">
         <button class="icon-btn" data-act="list-pin" aria-label="Anpinnen" title="Anpinnen">${list.pinned ? '📌' : '📍'}</button>
-        <button class="icon-btn" data-act="list-more" aria-label="Mehr" title="Mehr">${ICON.more}</button>
+        <button class="icon-btn" data-act="list-edit-title" aria-label="Titel bearbeiten" title="Titel bearbeiten">✏️</button>
+        <button class="icon-btn" data-act="list-bg" aria-label="Hintergrundfarbe" title="Hintergrundfarbe">🎨</button>
+        <button class="icon-btn" data-act="list-tags" aria-label="Tags bearbeiten" title="Tags bearbeiten">🏷</button>
+        <button class="icon-btn" data-act="list-archive" aria-label="Ins Archiv verschieben" title="Ins Archiv verschieben">📥</button>
+        <button class="icon-btn danger" data-act="list-delete" aria-label="Liste löschen" title="Liste löschen">🗑</button>
       </div>
     </div>
 
@@ -250,7 +256,7 @@ function renderList(id) {
     <div class="detail-sub">
       <span class="tpl-badge ${t.cls}">${t.label}</span>
       <span>${openCount} offen · ${doneCount} erledigt</span>
-      ${(list.tags || []).length ? list.tags.map((x) => `<span class="chip">${esc(x)}</span>`).join('') : ''}
+      ${(list.tags || []).length ? list.tags.map((x) => tagChip(list, x)).join('') : ''}
     </div>
 
     <div id="listBody">${body}</div>
@@ -259,22 +265,18 @@ function renderList(id) {
 }
 
 /* ============================================================
-   Menüs
+   Notiz: Kopf-Auswahl (Link bzw. To-Do)
    ============================================================ */
 
-function openListMenu(id) {
-  const list = db.byId(id);
-  if (!list) return;
+/** 🔗-Button im Notiz-Kopf: Link hinzufügen oder mit einem To-Do verknüpfen. */
+function openNoteLinkChooser(id) {
   S.openSheet({
-    title: 'Liste',
+    title: 'Verknüpfen',
     headLeft: '<span style="width:60px"></span>',
     headRight: '<button class="sh-btn" data-close>Schließen</button>',
     menu: `<div class="sheet-menu">
-      <button class="menu-btn" data-a="title"><span class="mi">✏️</span><span class="mb"><span>Titel ändern</span></span></button>
-      <button class="menu-btn" data-a="bg"><span class="mi">🎨</span><span class="mb"><span>Hintergrundfarbe</span></span></button>
-      <button class="menu-btn" data-a="tags"><span class="mi">🏷</span><span class="mb"><span>Tags bearbeiten</span></span></button>
-      <button class="menu-btn" data-a="archive"><span class="mi">📥</span><span class="mb"><span>Ins Archiv verschieben</span></span></button>
-      <button class="menu-btn danger" data-a="delete"><span class="mi">🗑</span><span class="mb"><span>Liste löschen</span></span></button>
+      <button class="menu-btn" data-a="link"><span class="mi">🔗</span><span class="mb"><span>Link hinzufügen</span><span class="ms">URL in der Notiz speichern</span></span></button>
+      <button class="menu-btn" data-a="todo"><span class="mi">✅</span><span class="mb"><span>Mit To-Do verknüpfen</span><span class="ms">Bestehenden Punkt auswählen</span></span></button>
     </div>`,
     onMount(sheet, handle) {
       sheet.querySelector('[data-close]').onclick = () => handle.close();
@@ -283,66 +285,8 @@ function openListMenu(id) {
           const a = b.dataset.a;
           handle.close();
           setTimeout(() => {
-            if (a === 'title') S.openListTitleSheet(id);
-            if (a === 'bg') S.openBgSheet(id);
-            if (a === 'tags') S.openTagSheet(id);
-            if (a === 'archive') {
-              db.update(id, { archived: 1 });
-              S.undoToast('Ins Archiv verschoben', () => db.update(id, { archived: 0 }));
-            }
-            if (a === 'delete') {
-              S.guardedDelete(list.title || 'Liste', () => {
-                const ids = [id, ...db.itemsOfList(id).map((i) => i.id)];
-                db.softDeleteList(id);
-                navigate('#/');
-                S.undoToast('Liste gelöscht', () => ids.forEach((x) => db.update(x, { deleted: 0 })));
-              });
-            }
-          }, 250);
-        };
-      });
-    },
-  });
-}
-
-function openNoteMenu(id) {
-  const note = db.byId(id);
-  if (!note) return;
-  S.openSheet({
-    title: 'Notiz',
-    headLeft: '<span style="width:60px"></span>',
-    headRight: '<button class="sh-btn" data-close>Schließen</button>',
-    menu: `<div class="sheet-menu">
-      <button class="menu-btn" data-a="bg"><span class="mi">🎨</span><span class="mb"><span>Hintergrundfarbe</span></span></button>
-      <button class="menu-btn" data-a="tags"><span class="mi">🏷</span><span class="mb"><span>Tags bearbeiten</span></span></button>
-      <button class="menu-btn" data-a="link"><span class="mi">🔗</span><span class="mb"><span>Link hinzufügen</span></span></button>
-      <button class="menu-btn" data-a="todo"><span class="mi">✅</span><span class="mb"><span>Mit To-Do verknüpfen</span></span></button>
-      <button class="menu-btn" data-a="archive"><span class="mi">📥</span><span class="mb"><span>Ins Archiv verschieben</span></span></button>
-      <button class="menu-btn danger" data-a="delete"><span class="mi">🗑</span><span class="mb"><span>Notiz löschen</span></span></button>
-    </div>`,
-    onMount(sheet, handle) {
-      sheet.querySelector('[data-close]').onclick = () => handle.close();
-      sheet.querySelectorAll('[data-a]').forEach((b) => {
-        b.onclick = () => {
-          const a = b.dataset.a;
-          handle.close();
-          setTimeout(() => {
-            if (a === 'bg') S.openBgSheet(id);
-            if (a === 'tags') S.openTagSheet(id);
             if (a === 'link') S.openLinkSheet(id);
             if (a === 'todo') openItemPicker(id);
-            if (a === 'archive') {
-              db.update(id, { archived: 1 });
-              navigate('#/');
-              S.undoToast('Ins Archiv verschoben', () => db.update(id, { archived: 0 }));
-            }
-            if (a === 'delete') {
-              S.guardedDelete(note.title || 'Notiz', () => {
-                db.softDelete(id);
-                navigate('#/');
-                S.undoToast('Notiz gelöscht', () => db.update(id, { deleted: 0 }));
-              });
-            }
           }, 250);
         };
       });
@@ -468,6 +412,16 @@ function handleAction(act, id, el, e) {
       S.openItemColorSheet(id);
       return;
 
+    case 'item-plan':
+      e.stopPropagation();
+      S.openPlanSheet(id);
+      return;
+
+    case 'card-tags':
+      e.stopPropagation();
+      S.openTagSheet(id);
+      return;
+
     case 'item-link': {
       e.stopPropagation();
       const it = db.byId(id);
@@ -560,14 +514,55 @@ function handleAction(act, id, el, e) {
       if (l) { db.update(l.id, { pinned: l.pinned ? 0 : 1 }); haptic(8); }
       return;
     }
-    case 'list-more': openListMenu(route.params.id); return;
+    case 'list-edit-title': S.openListTitleSheet(route.params.id); return;
+    case 'list-bg': S.openBgSheet(route.params.id); return;
+    case 'list-tags': S.openTagSheet(route.params.id); return;
+    case 'list-archive': {
+      const l = db.byId(route.params.id);
+      if (!l) return;
+      db.update(l.id, { archived: 1 });
+      navigate('#/');
+      S.undoToast('Ins Archiv verschoben', () => db.update(l.id, { archived: 0 }));
+      return;
+    }
+    case 'list-delete': {
+      const l = db.byId(route.params.id);
+      if (!l) return;
+      S.guardedDelete(l.title || 'Liste', () => {
+        const ids = [l.id, ...db.itemsOfList(l.id).map((i) => i.id)];
+        db.softDeleteList(l.id);
+        navigate('#/');
+        S.undoToast('Liste gelöscht', () => ids.forEach((x) => db.update(x, { deleted: 0 })));
+      });
+      return;
+    }
 
     case 'note-pin': {
       const n = db.byId(route.params.id);
       if (n) { db.update(n.id, { pinned: n.pinned ? 0 : 1 }); haptic(8); }
       return;
     }
-    case 'note-more': openNoteMenu(route.params.id); return;
+    case 'note-bg': S.openBgSheet(route.params.id); return;
+    case 'note-tags': S.openTagSheet(route.params.id); return;
+    case 'note-link': openNoteLinkChooser(route.params.id); return;
+    case 'note-archive': {
+      const n = db.byId(route.params.id);
+      if (!n) return;
+      db.update(n.id, { archived: 1 });
+      navigate('#/');
+      S.undoToast('Ins Archiv verschoben', () => db.update(n.id, { archived: 0 }));
+      return;
+    }
+    case 'note-delete': {
+      const n = db.byId(route.params.id);
+      if (!n) return;
+      S.guardedDelete(n.title || 'Notiz', () => {
+        db.softDelete(n.id);
+        navigate('#/');
+        S.undoToast('Notiz gelöscht', () => db.update(n.id, { deleted: 0 }));
+      });
+      return;
+    }
 
     case 'add-link': S.openLinkSheet(route.params.id); return;
     case 'add-file': document.getElementById('filePicker')?.click(); return;

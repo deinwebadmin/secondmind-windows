@@ -7,7 +7,7 @@ export const uid = () =>
 export const now = () => Date.now();
 
 /** App-Version (mit package.json / build.gradle abgleichen) */
-export const APP_VERSION = '1.0.2';
+export const APP_VERSION = '1.0.3';
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
@@ -62,6 +62,46 @@ export const WEEKDAYS_SHORT = ['Mo', 'Di', 'Mi', 'Do', 'Fr', 'Sa', 'So'];
 
 /** Index 0..6 (Mo..So) für den heutigen Wochentag */
 export const todayIndex = () => (new Date().getDay() + 6) % 7;
+
+/** Lokales Datum als YYYY-MM-DD (Kalender-Schlüssel) */
+export const isoDate = (d = new Date()) =>
+  `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
+
+/** 'YYYY-MM-DD' -> Date (lokale Mitternacht) */
+export const parseISO = (s) => {
+  const [y, m, d] = String(s || '').split('-').map(Number);
+  return new Date(y || 1970, (m || 1) - 1, d || 1);
+};
+
+export const addDays = (d, n) => {
+  const x = new Date(d);
+  x.setDate(x.getDate() + n);
+  return x;
+};
+
+const MONTHS_SHORT = ['Jan', 'Feb', 'Mär', 'Apr', 'Mai', 'Jun', 'Jul', 'Aug', 'Sep', 'Okt', 'Nov', 'Dez'];
+
+/** Zeitraum einer Woche: „12.–18. Okt 2026“ */
+export function weekLabel(mon) {
+  const sun = addDays(mon, 6);
+  return `${mon.getDate()}.–${sun.getDate()}. ${MONTHS_SHORT[sun.getMonth()]} ${sun.getFullYear()}`;
+}
+
+/** Kalenderwoche (ISO) einer Woche, Mo-Start */
+export function isoWeek(mon) {
+  const d = new Date(mon);
+  d.setDate(d.getDate() + 3);                     // Donnerstag der Woche
+  const firstThu = new Date(d.getFullYear(), 0, 4);
+  firstThu.setDate(firstThu.getDate() + 3 - ((firstThu.getDay() + 6) % 7));
+  return 1 + Math.round((d - firstThu) / (7 * 86_400_000));
+}
+
+/** „14:30“ + Minuten -> „15:30“ (Endzeit eines Termins) */
+export function addMinutesToTime(time, mins) {
+  const [h, m] = String(time || '00:00').split(':').map(Number);
+  const t = (((h || 0) * 60 + (m || 0) + (mins || 0)) % 1440 + 1440) % 1440;
+  return `${String(Math.floor(t / 60)).padStart(2, '0')}:${String(t % 60).padStart(2, '0')}`;
+}
 
 /* ---------------- Physik / Animation ---------------- */
 
@@ -154,6 +194,22 @@ export const ICON = {
   share: sv('<path d="M12 15V4m0 0L8.5 7.5M12 4l3.5 3.5M5.5 12v6.5A1.5 1.5 0 0 0 7 20h10a1.5 1.5 0 0 0 1.5-1.5V12"/>'),
   bolt: sv('<path d="M13.5 3 5.5 13.5h5L10 21l8-10.5h-5L13.5 3Z"/>'),
 };
+
+/* ---------------- Tags & Farben ---------------- */
+
+/** Farbpalette für Tags (neutral = Standardfarbe) */
+export const TAG_COLORS = ['neutral', 'blue', 'green', 'yellow', 'orange', 'red', 'purple'];
+
+/** Chip-Klasse für einen Tag: rec.tagColors = { Tag: Farbe } */
+export function tagCls(rec, tag) {
+  const c = rec?.tagColors?.[tag];
+  return c && c !== 'neutral' ? `tag-c-${c}` : '';
+}
+
+/** Fertiger farbiger Tag-Chip */
+export function tagChip(rec, tag) {
+  return `<span class="chip ${tagCls(rec, tag)}">${esc(tag)}</span>`;
+}
 
 /* ---------------- Diverses ---------------- */
 

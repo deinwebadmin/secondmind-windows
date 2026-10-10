@@ -18,8 +18,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.2.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.2/secondmind-Setup-1.0.2.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.2-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.2/secondmind-1.0.2-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.3.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.3/secondmind-Setup-1.0.3.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.3-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.3/secondmind-1.0.3-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -119,6 +119,13 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.3
+- **Kalender** (optional, in den Einstellungen zuschaltbar): Termine mit Datum, Uhrzeit und Dauer direkt am Punkt planen – Kalender-Button in jeder Punktzeile, neue Wochenansicht (‹ ›, „Heute", Wischgeste) über dem Menü-Button in der Topbar, Einträge antippen zum Verschieben, „＋ To-Do einplanen" aus dem Kalender heraus
+- **Tags bekommen eigene Farben**: Tag-Sheet mit Farbpalette (7 Farben), farbige Chips auf Karten und in den Detailansichten; Tag-Button (🏷) oben rechts auf jeder Startseiten-Karte
+- **Mehr Hintergrundfarben**: das Farben-Sheet bietet jetzt 15 Töne statt 5
+- **Drei-Punkte-Menü in den Detailansichten entfernt**: Listen und Notizen haben jetzt sechs einzelne Icon-Buttons (Anpinnen, Titel, Farbe, Tags, Archiv, Löschen – bei Notizen plus Verknüpfen)
+- **Bugfix**: die Archiv-Seite rendert nach dem Wiederherstellen des letzten Eintrags wieder korrekt (Leerzustand statt veralteter Ansicht)
 
 ### 1.0.2
 - **Anpinnen direkt auf der Startseite** – Pin-Button auf jeder Karte (Liste & Notiz)

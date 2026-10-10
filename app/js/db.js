@@ -10,6 +10,7 @@ const DEFAULT_SETTINGS = {
   confirmDelete: true,      // vor dem Löschen fragen
   memoryEnabled: true,      // Memory-Funktion an/aus
   archiveEnabled: true,     // Archiv
+  calendarEnabled: true,    // Kalender-Funktion an/aus
   syncInterval: 60,         // Sekunden
   clientId: '',             // Google OAuth Client-ID
   scopeMode: 'file',        // 'file' (drive.file) | 'full' (drive)
@@ -155,14 +156,16 @@ export function create(kind, patch = {}) {
 function defaultsFor(kind) {
   switch (kind) {
     case 'note':
-      return { title: '', text: '', bg: '', tags: [], links: [], files: [], linkedItems: [], pinned: 0, archived: 0 };
+      return { title: '', text: '', bg: '', tags: [], tagColors: {}, links: [], files: [], linkedItems: [], pinned: 0, archived: 0 };
     case 'list':
-      return { title: '', template: 'standard', bg: '', tags: [], pinned: 0, archived: 0, emoji: '' };
+      return { title: '', template: 'standard', bg: '', tags: [], tagColors: {}, pinned: 0, archived: 0, emoji: '' };
     case 'item':
       return {
         listId: '', parentId: null, text: '', order: now(), color: 'neutral',
         day: null, done: 0, doneAt: 0, noteId: null, state: 'active',
         originTitle: '', archivedAt: 0, memoryAt: 0,
+        plan: null,           // Kalender: { date: 'YYYY-MM-DD', time: 'HH:MM', dur: Minuten }
+        tagColors: {},        // Farben je Tag (Listen & Notizen)
       };
     default:
       return {};

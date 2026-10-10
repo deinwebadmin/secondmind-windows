@@ -242,6 +242,17 @@ a { color: var(--accent); text-decoration: none; }
   stroke-linecap: round;
 }
 
+#calBtn svg {
+  width: 21px; height: 21px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.8;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+#calBtn.active { color: var(--accent); background: rgba(0, 122, 255, .12); }
+#calBtn[hidden] { display: none; }
+
 /* ---------- Titel & Abschnitte ---------- */
 
 .view-title {
@@ -343,8 +354,8 @@ a { color: var(--accent); text-decoration: none; }
   white-space: pre-wrap;
 }
 
-/* Pin-Button direkt auf der Karte */
-.card-pin {
+/* Direkt-Buttons oben rechts auf der Karte: Tags + Pin */
+.card-pin, .card-tag {
   flex: none;
   width: 30px; height: 30px;
   margin: -3px -5px 0 0;
@@ -355,8 +366,9 @@ a { color: var(--accent); text-decoration: none; }
   background: transparent;
   transition: transform 160ms var(--spring), background-color 140ms ease;
 }
-.card-pin:active { transform: scale(.86); background: var(--fill); }
+.card-pin:active, .card-tag:active { transform: scale(.86); background: var(--fill); }
 .card-pin.on { color: var(--orange); }
+.card-tag svg { width: 17px; height: 17px; }
 
 /* Erste Hauptpunkte als Vorschau auf der Startseite */
 .card-items {
@@ -426,6 +438,59 @@ a { color: var(--accent); text-decoration: none; }
 }
 .chip.on { background: var(--accent); color: #fff; }
 
+/* Getaggte Chips mit eigener Farbe (helle Fläche + dunkle Schrift = in beiden Themes lesbar) */
+.chip.tag-c-blue   { background: #dcebff; color: #0b4fa8; }
+.chip.tag-c-green  { background: #dff5e4; color: #1e6b33; }
+.chip.tag-c-yellow { background: #fff1c2; color: #8a6100; }
+.chip.tag-c-orange { background: #ffe6d2; color: #a34b00; }
+.chip.tag-c-red    { background: #ffdcd9; color: #b3151a; }
+.chip.tag-c-purple { background: #eee0ff; color: #6b2fa8; }
+
+/* Tag-Bearbeitung im Tags-Sheet: Name wählt, × entfernt */
+.tag-edit {
+  display: inline-flex;
+  align-items: center;
+  gap: 1px;
+  padding: 2px 3px 2px 2px;
+  border-radius: 20px;
+  background: var(--fill);
+  transition: box-shadow 160ms ease;
+}
+.tag-edit.sel { box-shadow: 0 0 0 2px var(--accent); }
+.tag-edit .te-name {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 12.5px;
+  font-weight: 600;
+  color: var(--label);
+  padding: 3px 6px 3px 7px;
+  border-radius: 20px;
+  background: transparent;
+}
+.tag-edit .te-name:active { background: var(--fill-2); }
+.tag-edit .te-x {
+  width: 20px; height: 20px;
+  border-radius: 50%;
+  display: grid; place-items: center;
+  font-size: 13px; line-height: 1;
+  color: var(--label-2);
+  background: var(--card-2);
+}
+.tag-edit .te-x:active { background: var(--fill-2); color: var(--red); }
+.tag-edit .te-dot {
+  width: 9px; height: 9px;
+  border-radius: 50%;
+  background: var(--label-3);
+  flex: none;
+}
+.tag-edit .te-dot.c-blue   { background: #0a84ff; }
+.tag-edit .te-dot.c-green  { background: var(--green); }
+.tag-edit .te-dot.c-yellow { background: var(--yellow); }
+.tag-edit .te-dot.c-orange { background: #ff9500; }
+.tag-edit .te-dot.c-red    { background: var(--red); }
+.tag-edit .te-dot.c-purple { background: #af52de; }
+
 .color-dots { display: flex; gap: 9px; align-items: center; }
 .color-dot {
   width: 26px; height: 26px; border-radius: 50%;
@@ -441,9 +506,12 @@ a { color: var(--accent); text-decoration: none; }
   border-radius: 50%;
 }
 .dot-neutral { background: #c7c7cc; }
+.dot-blue    { background: #0a84ff; }
 .dot-green   { background: var(--green); }
 .dot-yellow  { background: var(--yellow); }
+.dot-orange  { background: #ff9500; }
 .dot-red     { background: var(--red); }
+.dot-purple  { background: #af52de; }
 
 .bg-swatches { display: flex; gap: 10px; flex-wrap: wrap; }
 .bg-swatch {
@@ -524,7 +592,10 @@ a { color: var(--accent); text-decoration: none; }
 .back-btn:active { transform: scale(.94); background: var(--fill); }
 .back-btn svg { width: 20px; height: 20px; stroke: currentColor; fill: none; stroke-width: 2.4; }
 .detail-head .spacer { flex: 1; }
-.detail-actions { display: flex; gap: 2px; }
+.detail-actions { display: flex; gap: 1px; }
+.detail-actions .icon-btn { width: 34px; height: 34px; border-radius: 10px; font-size: 15px; }
+.detail-actions .icon-btn svg { width: 20px; height: 20px; }
+.detail-actions .icon-btn.danger { color: var(--red); }
 
 .detail-title {
   font-size: 27px;
@@ -554,6 +625,116 @@ a { color: var(--accent); text-decoration: none; }
 .day-head .today-tag {
   font-size: 11px; background: var(--accent); color: #fff;
   padding: 1px 7px; border-radius: 10px; letter-spacing: .02em;
+}
+
+/* ---------- Kalender (Wochenansicht) ---------- */
+
+.cal-nav {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  margin: 8px 0 14px;
+}
+.cal-arrow {
+  width: 36px; height: 36px;
+  border-radius: 11px;
+  background: var(--card);
+  box-shadow: var(--shadow-1);
+  display: grid; place-items: center;
+  font-size: 21px;
+  line-height: 1;
+  color: var(--label-2);
+  flex: none;
+  transition: transform 160ms var(--spring), background-color 140ms ease;
+}
+.cal-arrow:active { transform: scale(.9); background: var(--fill); }
+.cal-range {
+  flex: 1;
+  text-align: center;
+  font-size: 15.5px;
+  font-weight: 750;
+  letter-spacing: -.01em;
+}
+.cal-today {
+  flex: none;
+  font-size: 13.5px;
+  font-weight: 650;
+  color: var(--accent);
+  background: var(--fill);
+  padding: 8px 11px;
+  border-radius: 11px;
+}
+.cal-today:active { background: var(--fill-2); }
+
+#calWeek { transition: transform 320ms var(--spring); }
+#calWeek.dragging { transition: none; }
+
+.cal-day.is-today .day-head { color: var(--accent); }
+.cal-none {
+  font-size: 13.5px;
+  color: var(--label-3);
+  padding: 3px 5px 9px;
+}
+
+.cal-entry {
+  display: flex;
+  align-items: center;
+  gap: 11px;
+  width: 100%;
+  text-align: left;
+  background: var(--card);
+  border-radius: 13px;
+  border-left: 3px solid var(--accent);
+  padding: 10px 13px;
+  margin-bottom: 8px;
+  box-shadow: var(--shadow-1);
+  transition: transform 180ms var(--spring), background-color 140ms ease;
+}
+.cal-entry:active { transform: scale(.98); background: var(--fill); }
+.cal-entry.c-green  { border-left-color: var(--green); }
+.cal-entry.c-yellow { border-left-color: #d99a00; }
+.cal-entry.c-red    { border-left-color: var(--red); }
+.cal-entry.done { opacity: .62; }
+.cal-entry .ce-time {
+  flex: none;
+  min-width: 44px;
+  font-size: 13.5px;
+  font-weight: 750;
+  color: var(--label-2);
+  font-variant-numeric: tabular-nums;
+}
+.cal-entry .ce-body { flex: 1; min-width: 0; }
+.cal-entry .ce-title {
+  display: block;
+  font-size: 15.5px;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.cal-entry .ce-title.done {
+  color: var(--label-2);
+  text-decoration: line-through;
+  text-decoration-color: var(--label-3);
+}
+.cal-entry .ce-sub {
+  display: block;
+  font-size: 12.5px;
+  color: var(--label-3);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  margin-top: 1px;
+}
+.cal-entry .ce-done {
+  flex: none;
+  width: 22px; height: 22px;
+  border-radius: 50%;
+  background: var(--green);
+  color: #fff;
+  font-size: 13px;
+  display: grid; place-items: center;
 }
 
 .item-row { position: relative; }
@@ -623,6 +804,27 @@ a { color: var(--accent); text-decoration: none; }
 .linked-note span, .linked-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .linked-note:active { opacity: .55; transform: scale(.97); }
 
+/* Eingeplanter Termin unter dem Punkt (öffnet das Termin-Sheet) */
+.plan-tag {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: rgba(0, 122, 255, .12);
+  color: var(--accent);
+  font-size: 12px;
+  font-weight: 650;
+  line-height: 1.6;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 140ms ease, transform 140ms var(--spring-bounce);
+}
+.plan-tag:active { opacity: .6; transform: scale(.96); }
+
 .item-tail {
   display: flex; align-items: center; gap: 7px;
   margin-left: auto; padding-left: 8px;
@@ -657,6 +859,7 @@ a { color: var(--accent); text-decoration: none; }
 .row-btn.on.c-green  { color: var(--green); background: rgba(52, 199, 89, .16); }
 .row-btn.on.c-yellow { color: #d99a00; background: rgba(255, 204, 0, .22); }
 .row-btn.on.c-red    { color: var(--red); background: rgba(255, 59, 48, .14); }
+.row-btn.cal.on      { color: var(--purple); background: rgba(175, 82, 222, .15); }
 .item-open {
   color: var(--label-3);
   font-size: 13px;
@@ -1157,6 +1360,14 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 /* ---------- Responsive ---------- */
+
+@media (max-width: 430px) {
+  /* Sechs Einzelbuttons im Detail-Kopf: „Zurück“ wird zur reinen Pfeil-Taste */
+  .back-btn span { display: none; }
+  .detail-actions { gap: 0; }
+  .detail-actions .icon-btn { width: 32px; height: 32px; font-size: 14.5px; }
+  .detail-actions .icon-btn svg { width: 19px; height: 19px; }
+}
 
 @media (min-width: 700px) {
   #view { padding-left: max(24px, calc(50vw - 520px)); padding-right: max(24px, calc(50vw - 520px)); }

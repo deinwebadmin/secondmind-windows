@@ -2,7 +2,7 @@
    Overlays: Bottom-Sheets, Bestätigungen, Menüs, Toasts, Erstell-Flows. */
 
 import * as db from './db.js';
-import { esc, ICON, haptic, fmtBytes, WEEKDAYS } from './util.js';
+import { esc, ICON, haptic, fmtBytes, WEEKDAYS, WEEKDAYS_SHORT, TAG_COLORS, isoDate, parseISO, addMinutesToTime } from './util.js';
 import { navigate } from './router.js';
 
 const root = () => document.getElementById('sheetRoot');
@@ -481,30 +481,72 @@ export function openNotePicker({ title = 'Notiz wählen', current = null, allowU
   });
 }
 
-/* ---------------- Tag-Editor ---------------- */
+/* ---------------- Tag-Editor (mit Farben pro Tag) ---------------- */
 
 export function openTagSheet(recordId) {
   const rec = db.byId(recordId);
   if (!rec) return;
   const tags = [...(rec.tags || [])];
+  const tagColors = { ...(rec.tagColors || {}) };
+  let sel = -1;                                   // ausgewählter Tag für die Farbwahl
+
   const all = new Set();
   for (const r of db.state.records.values()) (r.tags || []).forEach((t) => all.add(t));
 
+  const persist = () => {
+    if (!db.byId(recordId)) return;
+    const colors = {};
+    for (const [t, c] of Object.entries(tagColors)) {
+      if (tags.includes(t) && c && c !== 'neutral') colors[t] = c;
+    }
+    db.update(recordId, { tags: [...tags], tagColors: colors });
+  };
+
   const render = (sheet) => {
+    // Tag-Pills: Name wählt die Farbe, × entfernt den Tag
     sheet.querySelector('[data-chips]').innerHTML = tags.length
-      ? tags.map((t, i) => `<button class="chip on" data-rm="${i}">${esc(t)} ×</button>`).join('')
+      ? tags.map((t, i) => `
+        <span class="tag-edit ${i === sel ? 'sel' : ''}">
+          <button class="te-name" data-sel="${i}">
+            <span class="te-dot ${tagColors[t] && tagColors[t] !== 'neutral' ? `c-${tagColors[t]}` : ''}"></span>${esc(t)}
+          </button>
+          <button class="te-x" data-rm="${i}" aria-label="Tag entfernen">×</button>
+        </span>`).join('')
       : '<span class="r-note" style="color:var(--label-3)">Noch keine Tags</span>';
-    sheet.querySelectorAll('[data-rm]').forEach((b) => {
-      b.onclick = () => { tags.splice(Number(b.dataset.rm), 1); persist(); render(sheet); };
+    sheet.querySelectorAll('[data-sel]').forEach((b) => {
+      b.onclick = () => { sel = Number(b.dataset.sel); haptic(6); render(sheet); };
     });
+    sheet.querySelectorAll('[data-rm]').forEach((b) => {
+      b.onclick = () => {
+        const i = Number(b.dataset.rm);
+        delete tagColors[tags[i]];
+        tags.splice(i, 1);
+        if (sel >= tags.length) sel = tags.length - 1;
+        persist();
+        render(sheet);
+      };
+    });
+
+    // Farbpalette für den ausgewählten Tag
+    const pal = sheet.querySelector('[data-palette]');
+    if (sel < 0 || !tags[sel]) {
+      pal.innerHTML = '<span class="r-note" style="color:var(--label-3)">Tag antippen, um eine Farbe zu wählen.</span>';
+    } else {
+      const cur = tagColors[tags[sel]] || 'neutral';
+      pal.innerHTML = `<div class="color-dots">${TAG_COLORS.map((c) =>
+        `<button class="color-dot dot-${c} ${cur === c ? 'sel' : ''}" data-tcolor="${c}" aria-label="Farbe ${c}"></button>`).join('')}</div>`;
+      pal.querySelectorAll('[data-tcolor]').forEach((b) => {
+        b.onclick = () => { tagColors[tags[sel]] = b.dataset.tcolor; haptic(6); persist(); render(sheet); };
+      });
+    }
+
+    // Vorschläge aus anderen Datensätzen
     const sug = [...all].filter((t) => !tags.includes(t)).slice(0, 10);
     sheet.querySelector('[data-sug]').innerHTML = sug.map((t) => `<button class="chip" data-add="${esc(t)}">${esc(t)}</button>`).join('');
     sheet.querySelectorAll('[data-add]').forEach((b) => {
       b.onclick = () => { tags.push(b.dataset.add); persist(); render(sheet); };
     });
   };
-
-  const persist = () => { if (db.byId(recordId)) db.update(recordId, { tags: [...tags] }); };
 
   openSheet({
     title: 'Tags',
@@ -513,7 +555,9 @@ export function openTagSheet(recordId) {
     body: `
       <div class="chips" data-chips style="margin-bottom:14px"></div>
       <input class="text-in" id="tagin" placeholder="Tag eingeben und Enter drücken" maxlength="30">
-      <div class="grp-label" style="margin-top:16px">Vorschläge</div>
+      <div class="grp-label" style="margin-top:16px">Farbe</div>
+      <div data-palette style="margin-bottom:4px"></div>
+      <div class="grp-label" style="margin-top:14px">Vorschläge</div>
       <div class="chips" data-sug></div>`,
     onMount(sheet, handle) {
       render(sheet);
@@ -521,7 +565,7 @@ export function openTagSheet(recordId) {
       setTimeout(() => input.focus(), 320);
       const add = () => {
         const v = input.value.trim().replace(/,$/, '');
-        if (v && !tags.includes(v)) { tags.push(v); persist(); render(sheet); }
+        if (v && !tags.includes(v)) { tags.push(v); sel = tags.length - 1; persist(); render(sheet); }
         input.value = '';
       };
       input.onkeydown = (e) => { if (e.key === 'Enter') { e.preventDefault(); add(); } };
@@ -533,7 +577,12 @@ export function openTagSheet(recordId) {
 
 /* ---------------- Farbwähler (Hintergrund) ---------------- */
 
-export const BG_SWATCHS = ['', '#FFF6D9', '#E6F6E9', '#FFE7E4', '#E7F0FF', '#F2E9FF', '#EDEDF2'];
+/** 15 Hintergrundtöne + „Keine Farbe“ */
+export const BG_SWATCHS = [
+  '', '#FFF6D9', '#FFE9CC', '#FFE1D6', '#FFDCDC', '#FFDCE8',
+  '#F6E1FF', '#E9E1FF', '#DFE7FF', '#DCEEFF', '#DBF3FF',
+  '#DCF5EC', '#E2F5D9', '#F2F4D9', '#EDEDF2', '#E8E2DA',
+];
 
 export function openBgSheet(recordId) {
   const rec = db.byId(recordId);
@@ -617,6 +666,145 @@ export function openLinkSheet(recordId) {
         render();
       };
       sheet.querySelector('[data-done]').onclick = () => handle.close();
+    },
+  });
+}
+
+/* ---------------- Kalender: Punkte einplanen ---------------- */
+
+export const PLAN_DURATIONS = [15, 30, 45, 60, 120, 240];
+
+const durLabel = (d) => (d < 60 ? `${d} Min` : `${d / 60} Std`);
+
+const dayLabel = (dateStr) => {
+  const d = parseISO(dateStr);
+  return `${WEEKDAYS_SHORT[(d.getDay() + 6) % 7]}, ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
+};
+
+/** Termin-Sheet: Datum, Uhrzeit, Dauer – für Haupt- und Unterpunkte. */
+export function openPlanSheet(itemId) {
+  const item = db.byId(itemId);
+  if (!item || item.kind !== 'item') return;
+
+  const plan = item.plan?.date ? item.plan : null;
+  const now = new Date();
+  const q = Math.min(45, Math.ceil(now.getMinutes() / 15) * 15);   // nächste Viertelstunde
+  const def = plan
+    ? { ...plan, dur: Number(plan.dur) || 60 }
+    : {
+        date: isoDate(now),
+        time: `${String((now.getHours() + (q === 0 ? 1 : 0)) % 24).padStart(2, '0')}:${String(q).padStart(2, '0')}`,
+        dur: 60,
+      };
+
+  openSheet({
+    title: plan ? 'Termin verschieben' : 'In Kalender einplanen',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
+    body: `
+      <div class="r-note" style="margin:0 2px 12px">📅 ${esc(item.text || 'Ohne Text')}</div>
+      <div class="settings-group">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+          <span class="r-label">Datum</span>
+          <input type="date" class="text-in" id="pdate" value="${esc(def.date)}">
+        </div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+          <span class="r-label">Uhrzeit</span>
+          <input type="time" class="text-in" id="ptime" value="${esc(def.time)}">
+        </div>
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
+          <span class="r-label">Dauer</span>
+          <div class="seg" data-dur>
+            ${PLAN_DURATIONS.map((d) =>
+              `<button class="${def.dur === d ? 'on' : ''}" data-d="${d}">${durLabel(d)}</button>`).join('')}
+          </div>
+        </div>
+      </div>
+      <div class="r-note" data-prev style="padding:0 2px 14px"></div>
+      <button class="btn" data-save>${plan ? 'Verschieben' : 'Einplanen'}</button>
+      ${plan ? '<button class="btn secondary" data-clear style="margin-top:10px">Aus Kalender entfernen</button>' : ''}`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+
+      const dateEl = sheet.querySelector('#pdate');
+      const timeEl = sheet.querySelector('#ptime');
+      const prev = sheet.querySelector('[data-prev]');
+      let dur = def.dur;
+
+      const upd = () => {
+        sheet.querySelectorAll('[data-d]').forEach((b) => b.classList.toggle('on', Number(b.dataset.d) === dur));
+        if (!dateEl.value) { prev.textContent = 'Bitte ein Datum wählen.'; return; }
+        const t = timeEl.value || '00:00';
+        prev.textContent = `📅 ${dayLabel(dateEl.value)} · ${t} – ${addMinutesToTime(t, dur)} Uhr · ${durLabel(dur)}`;
+      };
+
+      dateEl.oninput = upd;
+      timeEl.oninput = upd;
+      sheet.querySelectorAll('[data-d]').forEach((b) => {
+        b.onclick = () => { dur = Number(b.dataset.d); upd(); haptic(6); };
+      });
+
+      sheet.querySelector('[data-save]').onclick = () => {
+        if (!dateEl.value) { toast('Bitte ein Datum wählen', { type: 'error' }); return; }
+        db.update(itemId, { plan: { date: dateEl.value, time: timeEl.value || '09:00', dur } });
+        haptic(10);
+        toast(plan ? 'Termin verschoben' : 'In den Kalender eingeplant');
+        handle.close();
+      };
+      sheet.querySelector('[data-clear]')?.addEventListener('click', () => {
+        db.update(itemId, { plan: null });
+        haptic(8);
+        toast('Aus dem Kalender entfernt');
+        handle.close();
+      });
+
+      upd();
+    },
+  });
+}
+
+/** Aus der Kalender-Ansicht: passenden Punkt wählen und einplanen. */
+export function openPlanChooser() {
+  const items = db.recs('item')
+    .filter((i) => i.state === 'active' && !i.done && (i.text || '').trim())
+    .slice(0, 80);
+
+  openSheet({
+    title: 'To-Do einplanen',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
+    body: `
+      <input class="text-in" id="pq" placeholder="Punkt suchen …" style="margin-bottom:12px">
+      <div class="settings-group" data-list></div>`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+      const listEl = sheet.querySelector('[data-list]');
+      const input = sheet.querySelector('#pq');
+
+      const draw = () => {
+        const q = input.value.trim().toLowerCase();
+        const hit = items.filter((i) => !q || (i.text || '').toLowerCase().includes(q));
+        listEl.innerHTML = hit.length
+          ? hit.map((it) => {
+              const l = db.byId(it.listId);
+              return `<button class="row tappable" data-pick="${it.id}">
+                <span class="r-label">${esc(it.text)}</span>
+                <span class="r-value">${it.plan?.date ? '📅 ' : ''}${esc(l?.title || '')}</span>
+              </button>`;
+            }).join('')
+          : '<div class="row"><span class="r-label" style="color:var(--label-2)">Keine passenden Punkte</span></div>';
+        listEl.querySelectorAll('[data-pick]').forEach((b) => {
+          b.onclick = () => {
+            const id = b.dataset.pick;
+            handle.close();
+            setTimeout(() => openPlanSheet(id), 260);
+          };
+        });
+      };
+
+      input.oninput = draw;
+      setTimeout(() => input.focus(), 320);
+      draw();
     },
   });
 }

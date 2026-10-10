@@ -84,6 +84,16 @@ function updateDrawerStats() {
   if (el) el.textContent = `${s.notes} Notizen · ${s.lists} Listen · ${s.open} offen`;
 }
 
+/* ---------------- Kalender-Button (Topbar) ---------------- */
+
+function wireCalBtn() {
+  const btn = document.getElementById('calBtn');
+  const apply = () => { btn.hidden = !db.getSetting('calendarEnabled'); };
+  btn.addEventListener('click', () => navigate('#/kalender'));
+  apply();
+  db.on('settings', (p) => { if (p.key === 'calendarEnabled') apply(); });
+}
+
 /* ---------------- Sync-Status ---------------- */
 
 const STATE_MAP = { ok: 'ok', syncing: 'syncing', offline: 'offline', error: 'error', disconnected: 'waiting', idle: 'idle' };
@@ -143,6 +153,7 @@ async function boot() {
   bindActions();
   wireSearch();
   wireDrawer();
+  wireCalBtn();
   wireSyncStatus();
   wireFab();
 

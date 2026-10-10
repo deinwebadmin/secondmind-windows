@@ -13,6 +13,7 @@ export function parse(hash = location.hash) {
   if (head === 'notiz') return { name: 'notiz', params: { id: rest[0] } };
   if (head === 'archiv') return { name: 'archiv', params: {} };
   if (head === 'memory') return { name: 'memory', params: {} };
+  if (head === 'kalender') return { name: 'kalender', params: {} };
   if (head === 'einstellungen') return { name: 'einstellungen', params: {} };
   if (head === 'suche') return { name: 'suche', params: { q: decodeURIComponent(rest.join('/') || '') } };
   return { name: 'home', params: {} };

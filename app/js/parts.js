@@ -3,7 +3,7 @@
 
 import * as db from './db.js';
 import * as S from './sheets.js';
-import { esc, ICON, fmtRel, spring, rubberband, reducedMotion, haptic, fmtBytes } from './util.js';
+import { esc, ICON, fmtRel, spring, rubberband, reducedMotion, haptic, fmtBytes, tagChip } from './util.js';
 import { navigate } from './router.js';
 
 /* ---------------- Styling-Helfer ---------------- */
@@ -59,6 +59,10 @@ export function listCardHtml(list, { context = 'home' } = {}) {
     parents.length ? `${done} erledigt` : 'leer',
   ].join(' · ');
 
+  // Direktzugriff oben rechts: Tags öffnen + anpinnen (nicht im Archiv)
+  const tagBtn = list.archived ? '' : `
+    <button class="card-tag" data-act="card-tags" data-id="${list.id}"
+      aria-label="Tags bearbeiten" title="Tags">${ICON.tag}</button>`;
   const pin = list.archived ? '' : `
     <button class="card-pin ${list.pinned ? 'on' : ''}" data-act="pin-card" data-id="${list.id}"
       aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${list.pinned ? '📌' : '📍'}</button>`;
@@ -68,6 +72,7 @@ export function listCardHtml(list, { context = 'home' } = {}) {
       <div class="card-top">
         <div class="card-emoji">${t.emoji}</div>
         <div class="card-title">${esc(list.title || 'Ohne Titel')}</div>
+        ${tagBtn}
         ${pin}
       </div>
       ${preview.length ? `<ul class="card-items">${preview.map((p) => `
@@ -77,7 +82,7 @@ export function listCardHtml(list, { context = 'home' } = {}) {
         <span>${esc(meta)}</span>
         ${list.updatedAt ? `<span>· ${fmtRel(list.updatedAt)}</span>` : ''}
       </div>
-      ${(list.tags || []).length ? `<div class="chips">${list.tags.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}
+      ${(list.tags || []).length ? `<div class="chips">${list.tags.map((x) => tagChip(list, x)).join('')}</div>` : ''}
       ${parents.length ? `<div class="card-progress" style="width:${prog}%"></div>` : ''}
     </div>`;
 }
@@ -88,6 +93,10 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
   const preview = lines.join('\n');
   const att = (note.files?.length || 0) + (note.links?.length || 0);
 
+  // Direktzugriff oben rechts: Tags öffnen + anpinnen (nicht im Archiv)
+  const tagBtn = note.archived ? '' : `
+    <button class="card-tag" data-act="card-tags" data-id="${note.id}"
+      aria-label="Tags bearbeiten" title="Tags">${ICON.tag}</button>`;
   const pin = note.archived ? '' : `
     <button class="card-pin ${note.pinned ? 'on' : ''}" data-act="pin-card" data-id="${note.id}"
       aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${note.pinned ? '📌' : '📍'}</button>`;
@@ -97,6 +106,7 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
       <div class="card-top">
         <div class="card-emoji">📝</div>
         <div class="card-title">${esc(note.title || 'Notiz ohne Titel')}</div>
+        ${tagBtn}
         ${pin}
       </div>
       ${preview ? `<div class="card-preview">${esc(preview)}</div>` : ''}
@@ -105,7 +115,7 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
         ${att ? `<span>· 📎 ${att}</span>` : ''}
         ${note.linkedItems?.length ? `<span>· ✅ ${note.linkedItems.length}</span>` : ''}
       </div>
-      ${(note.tags || []).length ? `<div class="chips">${note.tags.map((x) => `<span class="chip">${esc(x)}</span>`).join('')}</div>` : ''}
+      ${(note.tags || []).length ? `<div class="chips">${note.tags.map((x) => tagChip(note, x)).join('')}</div>` : ''}
     </div>`;
 }
 
@@ -125,12 +135,18 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
 
   const tail = [];
   if (!history) {
-    // Direktzugriff in der Zeile: Farbe wählen + Notiz verknüpfen (Büroklammer)
+    // Direktzugriff in der Zeile: Farbe wählen + Kalender (einplanen) + Notiz verknüpfen
     tail.push(`<button class="row-btn color${color ? ` on c-${color}` : ''}" data-act="item-color" data-id="${item.id}" aria-label="Farbe wählen" title="Farbe">${ICON.palette}</button>`);
+    if (db.getSetting('calendarEnabled')) {
+      tail.push(`<button class="row-btn cal${item.plan ? ' on' : ''}" data-act="item-plan" data-id="${item.id}" aria-label="In den Kalender einplanen" title="Einplanen">${ICON.calendar}</button>`);
+    }
     tail.push(`<button class="row-btn clip${noteTitle ? ' on' : ''}" data-act="item-link" data-id="${item.id}" aria-label="Notiz verknüpfen" title="Notiz verknüpfen">${ICON.clip}</button>`);
   }
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
   else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
+
+  const planTag = item.plan?.date && !history && db.getSetting('calendarEnabled') ? `
+    <button class="plan-tag" data-act="item-plan" data-id="${item.id}" title="Termin ändern">📅 ${esc(item.plan.time || '')}${item.plan.dur ? ` · ${item.plan.dur} Min` : ''}</button>` : '';
 
   return `
     <div class="${cls}" data-act="open-item" data-id="${item.id}">
@@ -138,6 +154,7 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
       <div class="item-body">
         <div class="item-text" contenteditable="true" spellcheck="false" data-edit="${item.id}">${esc(item.text)}</div>
         ${noteTitle ? `<button class="linked-note" data-act="open-linked-note" data-id="${note.id}" title="Verknüpfte Notiz öffnen">📝 ${esc(noteTitle)}</button>` : ''}
+        ${planTag}
       </div>
       <div class="item-tail">${tail.join('')}</div>
     </div>`;

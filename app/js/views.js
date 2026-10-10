@@ -4,7 +4,7 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
-import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION } from './util.js';
+import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION, tagChip, mondayOfWeek, addDays, weekLabel, isoWeek, isoDate, WEEKDAYS_SHORT, addMinutesToTime } from './util.js';
 import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bindSwipes, toggleItem, pruneEmptyItems } from './parts.js';
 import { navigate } from './router.js';
 
@@ -37,7 +37,11 @@ export function renderNote(id) {
       <div class="spacer"></div>
       <div class="detail-actions">
         <button class="icon-btn" data-act="note-pin" aria-label="Anpinnen" title="Anpinnen">${note.pinned ? '📌' : '📍'}</button>
-        <button class="icon-btn" data-act="note-more" aria-label="Mehr" title="Mehr">${ICON.more}</button>
+        <button class="icon-btn" data-act="note-bg" aria-label="Hintergrundfarbe" title="Hintergrundfarbe">🎨</button>
+        <button class="icon-btn" data-act="note-tags" aria-label="Tags bearbeiten" title="Tags bearbeiten">🏷</button>
+        <button class="icon-btn" data-act="note-link" aria-label="Verknüpfen" title="Link oder To-Do verknüpfen">🔗</button>
+        <button class="icon-btn" data-act="note-archive" aria-label="Ins Archiv verschieben" title="Ins Archiv verschieben">📥</button>
+        <button class="icon-btn danger" data-act="note-delete" aria-label="Notiz löschen" title="Notiz löschen">🗑</button>
       </div>
     </div>
 
@@ -45,7 +49,7 @@ export function renderNote(id) {
       <input class="note-title-in" id="noteTitle" placeholder="Titel" value="${esc(note.title)}" maxlength="200">
       <textarea class="note-text-in" id="noteText" placeholder="Text schreiben …">${esc(note.text)}</textarea>
 
-      ${(note.tags || []).length ? `<div class="chips" style="margin-bottom:14px">${note.tags.map((t) => `<span class="chip">${esc(t)}</span>`).join('')}</div>` : ''}
+      ${(note.tags || []).length ? `<div class="chips" style="margin-bottom:14px">${note.tags.map((t) => tagChip(note, t)).join('')}</div>` : ''}
 
       <div class="section-head" style="margin-top:4px"><h2>Anhänge</h2></div>
       <div style="display:flex;gap:8px;margin-bottom:12px">
@@ -179,7 +183,10 @@ export function renderArchive() {
   `;
 
   if (!lists.length && !items.length) {
-    return html + emptyState('🗂', 'Das Archiv ist leer', 'Wische Links über Listen oder Notizen, um sie hier abzulegen.');
+    // Wichtig: auch der Leerzustand muss die Ansicht ersetzen (sonst bleibt die
+    // alte Ansicht stehen, z. B. nachdem alle Einträge wiederhergestellt wurden)
+    view().innerHTML = html + emptyState('🗂', 'Das Archiv ist leer', 'Wische Links über Listen oder Notizen, um sie hier abzulegen.');
+    return;
   }
 
   if (lists.length) {
@@ -306,6 +313,151 @@ export function renderMemory() {
 }
 
 /* ============================================================
+   Kalender – Wochenansicht
+   ============================================================ */
+
+let calMonday = null;                       // Montag der angezeigten Woche
+
+const ensureMonday = () => (calMonday ||= mondayOfWeek());
+
+export function renderCalendar() {
+  const v = view();
+
+  if (!db.getSetting('calendarEnabled')) {
+    v.innerHTML = `
+      <div class="view-title">Kalender</div>
+      ${emptyState('📅', 'Kalender ist deaktiviert',
+        'Schalte die Kalender-Funktion in den Einstellungen ein, um Punkte einzuplanen.',
+        `<button class="btn secondary" data-act="goto-settings" style="max-width:260px;margin:18px auto 0">Zu den Einstellungen</button>`)}`;
+    return;
+  }
+
+  const mon = ensureMonday();
+  const todayKey = isoDate();
+
+  // Alle eingeplanten Punkte – nur sichtbare, aktive Datensätze
+  const planned = new Map();                // 'YYYY-MM-DD' -> [item]
+  for (const it of db.state.records.values()) {
+    if (it.kind !== 'item' || it.deleted || it.state !== 'active' || !it.plan?.date) continue;
+    const list = db.byId(it.listId);
+    if (list && (list.deleted || list.archived)) continue;
+    if (!planned.has(it.plan.date)) planned.set(it.plan.date, []);
+    planned.get(it.plan.date).push(it);
+  }
+
+  let html = `
+    <div class="view-title">Kalender <span class="count">KW ${isoWeek(mon)}</span></div>
+    <div class="cal-nav">
+      <button class="cal-arrow" data-cal="prev" aria-label="Vorherige Woche">‹</button>
+      <div class="cal-range">${weekLabel(mon)}</div>
+      <button class="cal-arrow" data-cal="next" aria-label="Nächste Woche">›</button>
+      <button class="cal-today" data-cal="today">Heute</button>
+    </div>
+    <div id="calWeek">`;
+
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(mon, i);
+    const key = isoDate(d);
+    const isToday = key === todayKey;
+    const items = (planned.get(key) || [])
+      .sort((a, b) => String(a.plan.time || '').localeCompare(String(b.plan.time || '')));
+
+    html += `
+      <div class="day-section cal-day${isToday ? ' is-today' : ''}">
+        <div class="day-head">${WEEKDAYS_SHORT[i]} · ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${isToday ? ' <span class="today-tag">Heute</span>' : ''}</div>
+        ${items.length ? items.map(calEntryHtml).join('') : '<div class="cal-none">Keine Termine</div>'}
+      </div>`;
+  }
+
+  html += `</div>
+    <button class="add-item" data-cal="new" style="margin-top:6px"><span class="plus">＋</span> To-Do einplanen</button>`;
+
+  v.innerHTML = html;
+  bindCalendar();
+}
+
+function calEntryHtml(it) {
+  const list = db.byId(it.listId);
+  const color = it.color && it.color !== 'neutral' ? it.color : '';
+  const end = it.plan.dur ? addMinutesToTime(it.plan.time, it.plan.dur) : '';
+  return `
+    <button class="cal-entry${color ? ` c-${color}` : ''}${it.done ? ' done' : ''}" data-cal="plan" data-id="${it.id}">
+      <span class="ce-time">${esc(it.plan.time || '')}</span>
+      <span class="ce-body">
+        <span class="ce-title${it.done ? ' done' : ''}">${esc(it.text || 'Ohne Text')}</span>
+        <span class="ce-sub">${esc(list?.title || 'Liste')}${end ? ` · bis ${end}` : ''}</span>
+      </span>
+      ${it.done ? '<span class="ce-done">✓</span>' : ''}
+    </button>`;
+}
+
+function bindCalendar() {
+  const v = view();
+
+  v.querySelectorAll('[data-cal]').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const a = b.dataset.cal;
+      if (a === 'prev') { calMonday = addDays(ensureMonday(), -7); haptic(6); renderCalendar(); }
+      else if (a === 'next') { calMonday = addDays(ensureMonday(), 7); haptic(6); renderCalendar(); }
+      else if (a === 'today') { calMonday = mondayOfWeek(); haptic(6); renderCalendar(); }
+      else if (a === 'new') S.openPlanChooser();
+      else if (a === 'plan') S.openPlanSheet(b.dataset.id);
+    });
+  });
+
+  // Wochenwechsel per Wischgeste (horizontal)
+  const week = v.querySelector('#calWeek');
+  if (!week) return;
+
+  let sx = 0, sy = 0, axis = null, pid = null, dragging = false;
+
+  week.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    sx = e.clientX; sy = e.clientY; axis = null; dragging = true; pid = e.pointerId;
+    week.classList.add('dragging');
+  });
+
+  week.addEventListener('pointermove', (e) => {
+    if (!dragging || pid !== e.pointerId) return;
+    const dx = e.clientX - sx, dy = e.clientY - sy;
+    if (axis === null) {
+      if (Math.abs(dx) > 12 || Math.abs(dy) > 12) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
+      else return;
+    }
+    if (axis !== 'x') return;
+    try { week.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    week.style.transform = `translateX(${dx * 0.45}px)`;
+  });
+
+  const release = (e) => {
+    if (!dragging || pid !== e.pointerId) return;
+    dragging = false;
+    week.classList.remove('dragging');
+    const dx = e.clientX - sx;
+    const swiped = axis === 'x' && Math.abs(dx) > 70;
+    const moved = axis === 'x' && Math.abs(dx) > 12;
+    week.style.transform = '';
+    week.style.pointerEvents = '';
+
+    if (moved) {
+      // Klick nach dem Ziehen unterdrücken
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      week.addEventListener('click', swallow, { capture: true, once: true });
+    }
+    if (swiped) {
+      haptic(8);
+      calMonday = addDays(ensureMonday(), dx < 0 ? 7 : -7);
+      renderCalendar();
+    }
+    axis = null;
+  };
+
+  week.addEventListener('pointerup', release);
+  week.addEventListener('pointercancel', release);
+}
+
+/* ============================================================
    Einstellungen
    ============================================================ */
 
@@ -373,6 +525,10 @@ export function renderSettings() {
       <button class="row tappable" data-toggle="memoryEnabled">
         <span class="r-label">Memory nutzen</span>
         <span class="switch ${s.memoryEnabled ? 'on' : ''}"></span>
+      </button>
+      <button class="row tappable" data-toggle="calendarEnabled">
+        <span class="r-label">Kalender nutzen</span>
+        <span class="switch ${s.calendarEnabled ? 'on' : ''}"></span>
       </button>
       <button class="row tappable" data-toggle="confirmDelete">
         <span class="r-label">Vor dem Löschen fragen</span>
