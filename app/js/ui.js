@@ -7,7 +7,7 @@ import * as sync from './sync.js';
 import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChip } from './util.js';
 import {
   listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
-  bindSwipes, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
+  bindSwipes, bindItemDrag, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
 } from './parts.js';
 import {
   renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
@@ -198,7 +198,7 @@ function renderList(id) {
     const order = [...activeParents];
     for (let d = 0; d < 7; d++) {
       const dayItems = order.filter((p) => (p.day ?? -1) === d);
-      body += `<div class="day-section">
+      body += `<div class="day-section" data-day="${d}">
         <div class="day-head">${WEEKDAYS[d]} ${d === todayIndex() ? '<span class="today-tag">Heute</span>' : ''}</div>
         <div class="day-list">${dayItems.map(groupHtml).join('')}</div>
         <button class="add-item" data-act="add-parent" data-id="${list.id}" data-day="${d}">
@@ -208,7 +208,7 @@ function renderList(id) {
     }
     const noDay = order.filter((p) => (p.day ?? -1) < 0);
     if (noDay.length) {
-      body += `<div class="day-section">
+      body += `<div class="day-section" data-day="-1">
         <div class="day-head">Ohne Tag</div>
         ${noDay.map(groupHtml).join('')}
       </div>`;
@@ -262,6 +262,7 @@ function renderList(id) {
     <div id="listBody">${body}</div>
   `;
   bindSwipes(v);
+  bindItemDrag(v);
 }
 
 /* ============================================================

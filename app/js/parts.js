@@ -339,6 +339,166 @@ function bindSwipe(container) {
   content.addEventListener('pointercancel', release);
 }
 
+/* ---------------- Reihenfolge per Drag & Drop ---------------- */
+
+/** Punktzeilen lassen sich nach kurzem Drücken verschieben: Hauptpunkte
+    innerhalb ihrer Ebene (in Wochenlisten auch auf einen anderen Tag),
+    Unterpunkte innerhalb ihres Hauptpunkts. Horizontal wischen bleibt
+    Swipe-Aktion (Archiv/Memory/Löschen). */
+export function bindItemDrag(scope = document) {
+  scope.querySelectorAll('.swipe[data-swipe]').forEach(bindRowDrag);
+}
+
+/** Nicht erledigte Hauptpunkt-Gruppen in einem Container. */
+function parentGroupsIn(root) {
+  return [...root.children].filter((el) => {
+    if (!el.classList?.contains('group')) return false;
+    const p = el.querySelector('.item');      // erste Zeile = Hauptpunkt
+    return !!p && !p.classList.contains('done');
+  });
+}
+
+/** Container für die Gruppen einer Sektion (Wochenlisten: die .day-list). */
+function groupsRootIn(section) {
+  return section?.querySelector?.('.day-list') || section;
+}
+
+function bindRowDrag(container) {
+  if (container.dataset.dragBound) return;
+  const row = container.querySelector('.item');
+  if (!row) return;
+  container.dataset.dragBound = '1';
+
+  const isSub = row.classList.contains('sub');
+  const dragEl = isSub ? container : (container.closest('.group') || container);
+  let timer = null, pid = null, sx = 0, sy = 0, active = false, moved = false;
+  let els = [], rects = [], idx0 = 0, dragH = 0, lastIdx = 0, srcSection = null;
+
+  const scopeEls = () => {
+    if (isSub) {
+      const grp = container.closest('.group');
+      return grp ? [...grp.children].filter((el) => el.classList?.contains('swipe') && el.querySelector('.item.sub')) : [];
+    }
+    const section = container.closest('.day-section');
+    const root = section ? groupsRootIn(section) : document.getElementById('listBody');
+    return root ? parentGroupsIn(root) : [];
+  };
+
+  const blockScroll = (e) => { if (active) e.preventDefault(); };
+
+  const begin = () => {
+    timer = null;
+    els = scopeEls();
+    idx0 = els.indexOf(dragEl);
+    if (idx0 < 0) return;                    // z. B. erledigter Punkt
+    rects = els.map((el) => el.getBoundingClientRect());
+    dragH = rects[idx0].height;
+    lastIdx = idx0;
+    srcSection = container.closest('.day-section');
+    active = true; moved = true;
+    dragEl.classList.add('row-lift');
+    document.body.classList.add('item-dragging');
+    document.addEventListener('touchmove', blockScroll, { passive: false });
+    haptic(10);
+  };
+
+  container.addEventListener('pointerdown', (e) => {
+    if (active || timer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+    if (e.target.closest('button')) return;   // Buttons bleiben klickbar
+    pid = e.pointerId; sx = e.clientX; sy = e.clientY;
+    timer = setTimeout(begin, 280);           // langes Drücken startet das Ziehen
+  });
+
+  container.addEventListener('pointermove', (e) => {
+    if (pid === null || e.pointerId !== pid) return;
+    if (!active) {
+      if (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10) {
+        clearTimeout(timer); timer = null; pid = null;   // war ein Scrollen/Wischen
+      }
+      return;
+    }
+    try { container.setPointerCapture(e.pointerId); } catch { /* egal */ }
+    const dy = e.clientY - sy;
+    dragEl.style.transform = `translateY(${dy}px)`;
+    let idx = 0;
+    for (let i = 0; i < rects.length; i++) {
+      if (e.clientY > rects[i].top + rects[i].height / 2) idx = i;
+    }
+    if (idx !== lastIdx) { lastIdx = idx; haptic(4); }
+    els.forEach((el, i) => {
+      if (i === idx0) return;
+      let sh = 0;
+      if (idx > idx0 && i > idx0 && i <= idx) sh = -dragH;
+      else if (idx < idx0 && i >= idx && i < idx0) sh = dragH;
+      el.style.transform = sh ? `translateY(${sh}px)` : '';
+    });
+  });
+
+  const finish = (e, commit) => {
+    clearTimeout(timer); timer = null;
+    if (pid === null || (e && e.pointerId !== pid)) return;
+    pid = null;
+    if (moved) {                              // Klick nach dem Ziehen unterdrücken
+      const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
+      container.addEventListener('click', swallow, { capture: true, once: true });
+    }
+    if (!active) { moved = false; return; }
+    active = false;
+    dragEl.classList.remove('row-lift');
+    document.body.classList.remove('item-dragging');
+    document.removeEventListener('touchmove', blockScroll);
+    els.forEach((el) => { el.style.transform = ''; });
+    dragEl.style.transform = '';
+    if (commit) applyReorder(e);
+    moved = false;
+  };
+
+  container.addEventListener('pointerup', (e) => finish(e, true));
+  container.addEventListener('pointercancel', (e) => finish(e, false));
+
+  /** Neue Reihenfolge (und ggf. Wochentag) speichern. */
+  function applyReorder(e) {
+    const id = container.dataset.id;
+    const idOf = (el) => el.dataset.id || el.querySelector('.swipe[data-swipe]')?.dataset.id;
+    const save = (ids) => ids.forEach((x, i) => {
+      const it = x && db.byId(x);
+      const want = (i + 1) * 1000;
+      if (it && (it.order || 0) !== want) db.update(x, { order: want });
+    });
+
+    // In einen anderen Bereich gezogen? (Wochen-Vorlage = anderer Tag)
+    if (!isSub && srcSection && e) {
+      container.style.visibility = 'hidden';  // nicht unter dem Finger liegen
+      const under = document.elementFromPoint(e.clientX, e.clientY);
+      container.style.visibility = '';
+      const dropSection = under?.closest?.('.day-section');
+      if (dropSection && dropSection !== srcSection) {
+        const day = Number(dropSection.dataset.day ?? -1);
+        const tEls = parentGroupsIn(groupsRootIn(dropSection));
+        let idx = tEls.length;
+        for (let i = 0; i < tEls.length; i++) {
+          const r = tEls[i].getBoundingClientRect();
+          if (e.clientY < r.top + r.height / 2) { idx = i; break; }
+        }
+        const ids = tEls.map(idOf);
+        ids.splice(idx, 0, id);
+        save(ids);
+        const it = db.byId(id);
+        if (it && (it.day ?? -1) !== day) db.update(id, { day: day >= 0 ? day : null });
+        haptic(12);
+        return;
+      }
+    }
+
+    if (lastIdx === idx0) return;
+    const ids = els.map(idOf);
+    ids.splice(idx0, 1);
+    ids.splice(lastIdx, 0, id);
+    save(ids);
+    haptic(12);
+  }
+}
+
 /** Aktion je nach Wischrichtung und Kontext. */
 function handleSwipeAction(id, dir, mode) {
   const rec = db.byId(id);

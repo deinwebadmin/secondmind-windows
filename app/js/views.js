@@ -4,7 +4,7 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
-import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION, tagChip, mondayOfWeek, addDays, weekLabel, isoWeek, isoDate, WEEKDAYS_SHORT, addMinutesToTime } from './util.js';
+import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION, tagChip, mondayOfWeek, addDays, weekLabel, isoWeek, isoDate, WEEKDAYS_SHORT } from './util.js';
 import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bindSwipes, toggleItem, pruneEmptyItems } from './parts.js';
 import { navigate } from './router.js';
 
@@ -313,12 +313,24 @@ export function renderMemory() {
 }
 
 /* ============================================================
-   Kalender – Wochenansicht
+   Kalender – Wochenraster (24 Stunden × 7 Tage)
    ============================================================ */
 
 let calMonday = null;                       // Montag der angezeigten Woche
+const HOUR_H = 48;                          // Pixel pro Stunde im Raster
+const SNAP = 12;                            // Rasterpunkt (15 Minuten = 12px)
+const GRID_H = HOUR_H * 24;
 
 const ensureMonday = () => (calMonday ||= mondayOfWeek());
+
+/** Startminuten (0–1439) eines Plans – ohne Uhrzeit = Mitternacht. */
+const startMinOf = (plan) => {
+  const t = String(plan?.time || '00:00').split(':');
+  return Math.max(0, Math.min(1439, (Number(t[0]) || 0) * 60 + (Number(t[1]) || 0)));
+};
+
+/** Minuten -> "HH:MM". */
+const fmtHM = (mins) => `${String(Math.floor(mins / 60)).padStart(2, '0')}:${String(Math.round(mins) % 60).padStart(2, '0')}`;
 
 export function renderCalendar() {
   const v = view();
@@ -345,7 +357,29 @@ export function renderCalendar() {
     planned.get(it.plan.date).push(it);
   }
 
-  let html = `
+  // Kopfzeile (7 Tagesspalten) und Rasterzellen parallel aufbauen
+  let heads = '', cols = '';
+  for (let i = 0; i < 7; i++) {
+    const d = addDays(mon, i);
+    const key = isoDate(d);
+    const isToday = key === todayKey;
+    heads += `
+      <div class="cal-col-head${isToday ? ' is-today' : ''}">
+        <span class="ch-day">${WEEKDAYS_SHORT[i]}</span>
+        <span class="ch-date">${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.</span>
+        ${isToday ? '<span class="today-tag">Heute</span>' : ''}
+      </div>`;
+
+    const items = (planned.get(key) || []).slice()
+      .sort((a, b) => startMinOf(a.plan) - startMinOf(b.plan));
+    cols += `<div class="cal-col${isToday ? ' is-today' : ''}" data-date="${key}">${calEntriesHtml(items)}</div>`;
+  }
+
+  // Zeitachse: 24 Stunden
+  let axis = '';
+  for (let h = 0; h < 24; h++) axis += `<div class="cal-hour">${String(h).padStart(2, '0')}:00</div>`;
+
+  v.innerHTML = `
     <div class="view-title">Kalender <span class="count">KW ${isoWeek(mon)}</span></div>
     <div class="cal-nav">
       <button class="cal-arrow" data-cal="prev" aria-label="Vorherige Woche">‹</button>
@@ -353,41 +387,50 @@ export function renderCalendar() {
       <button class="cal-arrow" data-cal="next" aria-label="Nächste Woche">›</button>
       <button class="cal-today" data-cal="today">Heute</button>
     </div>
-    <div id="calWeek">`;
+    <div class="cal-scroll" id="calScroll">
+      <div class="cal-grid">
+        <div class="cal-axis-head"></div>
+        ${heads}
+        <div class="cal-axis">${axis}</div>
+        ${cols}
+      </div>
+    </div>
+    <button class="add-item" data-cal="new" style="margin-top:10px"><span class="plus">＋</span> To-Do einplanen</button>`;
 
-  for (let i = 0; i < 7; i++) {
-    const d = addDays(mon, i);
-    const key = isoDate(d);
-    const isToday = key === todayKey;
-    const items = (planned.get(key) || [])
-      .sort((a, b) => String(a.plan.time || '').localeCompare(String(b.plan.time || '')));
-
-    html += `
-      <div class="day-section cal-day${isToday ? ' is-today' : ''}">
-        <div class="day-head">${WEEKDAYS_SHORT[i]} · ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${isToday ? ' <span class="today-tag">Heute</span>' : ''}</div>
-        ${items.length ? items.map(calEntryHtml).join('') : '<div class="cal-none">Keine Termine</div>'}
-      </div>`;
-  }
-
-  html += `</div>
-    <button class="add-item" data-cal="new" style="margin-top:6px"><span class="plus">＋</span> To-Do einplanen</button>`;
-
-  v.innerHTML = html;
   bindCalendar();
 }
 
-function calEntryHtml(it) {
+/** Einträge eines Tages als positionierte Blöcke – zeitgleiche Termine
+    verteilen sich auf Spuren nebeneinander. */
+function calEntriesHtml(items) {
+  if (!items.length) return '';
+  const laneEnds = [];                      // Endminuten je Spur
+  const placed = items.map((it) => {
+    const s = startMinOf(it.plan);
+    const dur = Math.max(Number(it.plan?.dur) || 0, 15);
+    const e = Math.min(1440, s + dur);
+    let lane = laneEnds.findIndex((end) => end <= s);
+    if (lane === -1) { lane = laneEnds.length; laneEnds.push(e); } else laneEnds[lane] = e;
+    return { it, s, dur, lane };
+  });
+  const lanes = Math.max(1, laneEnds.length);
+  return placed.map((p) => calEntryHtml(p, lanes)).join('');
+}
+
+function calEntryHtml(p, lanes) {
+  const { it, s, dur, lane } = p;
   const list = db.byId(it.listId);
   const color = it.color && it.color !== 'neutral' ? it.color : '';
-  const end = it.plan.dur ? addMinutesToTime(it.plan.time, it.plan.dur) : '';
+  const w = 100 / lanes;
+  const top = Math.round(s / 60 * HOUR_H);
+  const h = Math.max(20, Math.round(dur / 60 * HOUR_H) - 2);
   return `
-    <button class="cal-entry${color ? ` c-${color}` : ''}${it.done ? ' done' : ''}" data-cal="plan" data-id="${it.id}">
+    <button class="cal-entry${color ? ` c-${color}` : ''}${it.done ? ' done' : ''}${h < 40 ? ' tight' : ''}"
+      data-cal="plan" data-id="${it.id}"
+      style="top:${top}px;height:${h}px;left:calc(${(lane * w).toFixed(2)}% + 2px);width:calc(${w.toFixed(2)}% - 4px)">
       <span class="ce-time">${esc(it.plan.time || '')}</span>
-      <span class="ce-body">
-        <span class="ce-title${it.done ? ' done' : ''}">${esc(it.text || 'Ohne Text')}</span>
-        <span class="ce-sub">${esc(list?.title || 'Liste')}${end ? ` · bis ${end}` : ''}</span>
-      </span>
-      ${it.done ? '<span class="ce-done">✓</span>' : ''}
+      <span class="ce-title">${esc(it.text || 'Ohne Text')}</span>
+      <span class="ce-sub">${esc(list?.title || 'Liste')}</span>
     </button>`;
 }
 
@@ -406,55 +449,78 @@ function bindCalendar() {
     });
   });
 
-  // Wochenwechsel per Wischgeste (horizontal)
-  const week = v.querySelector('#calWeek');
-  if (!week) return;
+  bindCalDrag(v);
 
-  let sx = 0, sy = 0, axis = null, pid = null, dragging = false;
+  // Raster zur aktuellen Uhrzeit führen (in fremden Wochen auf den Morgen)
+  const now = new Date();
+  const today = isoDate();
+  const inWeek = today >= isoDate(ensureMonday()) && today <= isoDate(addDays(ensureMonday(), 6));
+  const focusMin = inWeek ? now.getHours() * 60 + now.getMinutes() : 8 * 60;
+  v.scrollTop = Math.max(0, Math.round(focusMin / 60 * HOUR_H) - 150);
+}
 
-  week.addEventListener('pointerdown', (e) => {
-    if (e.pointerType === 'mouse' && e.button !== 0) return;
-    sx = e.clientX; sy = e.clientY; axis = null; dragging = true; pid = e.pointerId;
-    week.classList.add('dragging');
-  });
+/** Termine im Raster verschieben: Tag (Spalte) und Uhrzeit (Höhe) per Drag. */
+function bindCalDrag(v) {
+  v.querySelectorAll('.cal-entry').forEach((entry) => {
+    let pid = null, sx = 0, sy = 0, top0 = 0, newTop = 0, h = 0;
+    let dragging = false, id = null, item = null, cols = [], curCol = null;
 
-  week.addEventListener('pointermove', (e) => {
-    if (!dragging || pid !== e.pointerId) return;
-    const dx = e.clientX - sx, dy = e.clientY - sy;
-    if (axis === null) {
-      if (Math.abs(dx) > 12 || Math.abs(dy) > 12) axis = Math.abs(dx) > Math.abs(dy) ? 'x' : 'y';
-      else return;
-    }
-    if (axis !== 'x') return;
-    try { week.setPointerCapture(e.pointerId); } catch { /* egal */ }
-    week.style.transform = `translateX(${dx * 0.45}px)`;
-  });
+    entry.addEventListener('pointerdown', (e) => {
+      if (e.pointerType === 'mouse' && e.button !== 0) return;
+      pid = e.pointerId; sx = e.clientX; sy = e.clientY; dragging = false;
+      id = entry.dataset.id; item = db.byId(id);
+      top0 = parseFloat(entry.style.top) || 0; newTop = top0;
+      h = entry.offsetHeight;
+    });
 
-  const release = (e) => {
-    if (!dragging || pid !== e.pointerId) return;
-    dragging = false;
-    week.classList.remove('dragging');
-    const dx = e.clientX - sx;
-    const swiped = axis === 'x' && Math.abs(dx) > 70;
-    const moved = axis === 'x' && Math.abs(dx) > 12;
-    week.style.transform = '';
-    week.style.pointerEvents = '';
+    entry.addEventListener('pointermove', (e) => {
+      if (pid !== e.pointerId || !item?.plan) return;
+      const dx = e.clientX - sx, dy = e.clientY - sy;
+      if (!dragging) {
+        if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
+        dragging = true;
+        entry.classList.add('dragging');
+        try { entry.setPointerCapture(e.pointerId); } catch { /* egal */ }
+        cols = [...v.querySelectorAll('.cal-col')]
+          .map((c) => ({ el: c, date: c.dataset.date, r: c.getBoundingClientRect() }));
+        curCol = cols.find((c) => c.el.contains(entry)) || null;
+        haptic(8);
+      }
+      newTop = Math.max(0, Math.min(GRID_H - h, Math.round((top0 + dy) / SNAP) * SNAP));
+      entry.style.transform = `translate(${dx}px, ${newTop - top0}px)`;
+      const over = cols.find((c) => e.clientX >= c.r.left && e.clientX <= c.r.right);
+      if (over && over !== curCol) {
+        curCol?.el.classList.remove('drop-target');
+        curCol = over;
+        curCol.el.classList.add('drop-target');
+      }
+    });
 
-    if (moved) {
+    const finish = (e, commit) => {
+      if (pid === null || pid !== e.pointerId) return;
+      const wasDrag = dragging;
+      pid = null; dragging = false;
+      if (!wasDrag) return;                 // Tap: das click-Event öffnet das Sheet
+      entry.classList.remove('dragging');
+      entry.style.transform = '';
+      cols.forEach((c) => c.el.classList.remove('drop-target'));
       // Klick nach dem Ziehen unterdrücken
       const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
-      week.addEventListener('click', swallow, { capture: true, once: true });
-    }
-    if (swiped) {
-      haptic(8);
-      calMonday = addDays(ensureMonday(), dx < 0 ? 7 : -7);
-      renderCalendar();
-    }
-    axis = null;
-  };
+      entry.addEventListener('click', swallow, { capture: true, once: true });
 
-  week.addEventListener('pointerup', release);
-  week.addEventListener('pointercancel', release);
+      const date = curCol?.date || item.plan.date;
+      const time = fmtHM(Math.round(newTop / HOUR_H * 60));
+      if (commit && (date !== item.plan.date || time !== (item.plan.time || ''))) {
+        db.update(id, { plan: { ...item.plan, date, time } });
+        haptic(14);
+        S.toast('Termin verschoben');
+      }
+      renderCalendar();
+    };
+
+    entry.addEventListener('pointerup', (e) => finish(e, true));
+    entry.addEventListener('pointercancel', (e) => finish(e, false));
+  });
 }
 
 /* ============================================================
