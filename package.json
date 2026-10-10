@@ -1,0 +1,45 @@
+{
+  "name": "secondmind-windows",
+  "productName": "secondmind",
+  "version": "1.0.0",
+  "description": "secondmind – Notizen und To-Dos mit Google-Drive-Synchronisation (Windows)",
+  "main": "electron/main.js",
+  "author": "deinwebadmin",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "pack": "electron-builder --dir",
+    "dist": "electron-builder --win"
+  },
+  "devDependencies": {
+    "electron": "^33.2.1",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "appId": "de.webadmin.secondmind",
+    "productName": "secondmind",
+    "directories": {
+      "output": "dist"
+    },
+    "files": [
+      "electron/**/*",
+      "app/**/*"
+    ],
+    "asar": true,
+    "win": {
+      "icon": "assets/logo.ico",
+      "target": [
+        { "target": "nsis", "arch": ["x64"] },
+        { "target": "portable", "arch": ["x64"] }
+      ]
+    },
+    "nsis": {
+      "oneClick": true,
+      "perMachine": false,
+      "allowToChangeInstallationDirectory": false,
+      "createDesktopShortcut": true,
+      "shortcutName": "secondmind"
+    }
+  }
+}

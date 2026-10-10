@@ -1,0 +1,82 @@
+<!doctype html>
+<html lang="de">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="color-scheme" content="light dark">
+<meta name="theme-color" content="#f2f2f7">
+<title>secondmind</title>
+<link rel="icon" href="assets/logo.svg" type="image/svg+xml">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="stylesheet" href="styles.css">
+</head>
+<body>
+<div id="shell">
+
+  <header id="topbar">
+    <button id="logoBtn" class="icon-btn" aria-label="Menü öffnen" aria-haspopup="menu">
+      <img src="assets/logo.svg" alt="" class="logo-mark">
+    </button>
+
+    <div class="searchwrap">
+      <svg class="search-icon" viewBox="0 0 20 20" aria-hidden="true"><path d="M8.5 3a5.5 5.5 0 1 0 3.4 9.8l3.3 3.3a1 1 0 0 0 1.4-1.4l-3.3-3.3A5.5 5.5 0 0 0 8.5 3Zm0 2a3.5 3.5 0 1 1 0 7 3.5 3.5 0 0 1 0-7Z"/></svg>
+      <input id="search" type="search" placeholder="Suchen" autocomplete="off" spellcheck="false" aria-label="Suchen">
+      <button id="searchClear" class="search-clear" aria-label="Suche löschen" hidden>&times;</button>
+    </div>
+
+    <button id="syncBtn" class="sync-dot" aria-label="Synchronisierungsstatus" title="Synchronisierung">
+      <span class="dot" data-state="idle"></span>
+    </button>
+  </header>
+
+  <main id="view" tabindex="-1"></main>
+
+  <button id="fab" aria-label="Neu erstellen">
+    <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M12 5v14M5 12h14" stroke-linecap="round"/></svg>
+  </button>
+
+  <nav id="tabbar" aria-label="Schnellzugriff">
+    <a href="#/" data-tab="home" aria-label="Start">
+      <svg viewBox="0 0 24 24"><path d="M4 10.5 12 4l8 6.5V20a1 1 0 0 1-1 1h-4v-6H9v6H5a1 1 0 0 1-1-1v-9.5Z"/></svg>
+    </a>
+    <a href="#/archiv" data-tab="archiv" aria-label="Archiv">
+      <svg viewBox="0 0 24 24"><path d="M4 7.5h16V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V7.5Zm-1-3h18v3H3v-3Zm7 7h4" stroke-linecap="round"/></svg>
+    </a>
+    <a href="#/memory" data-tab="memory" aria-label="Memory">
+      <svg viewBox="0 0 24 24"><path d="M12 3.5c-3 0-5 2-5 4.5 0 1.4.6 2.5 1.5 3.4-.4.9-1.5 1.6-1.5 3.1 0 2.5 2 4.5 5 4.5s5-2 5-4.5c0-1.5-1.1-2.2-1.5-3.1.9-.9 1.5-2 1.5-3.4 0-2.5-2-4.5-5-4.5Z"/></svg>
+    </a>
+    <a href="#/einstellungen" data-tab="einstellungen" aria-label="Einstellungen">
+      <svg viewBox="0 0 24 24"><path d="M12 15.5a3.5 3.5 0 1 0 0-7 3.5 3.5 0 0 0 0 7Z"/><path d="M19.4 13.5a7.8 7.8 0 0 0 0-3l1.8-1.3-1.9-3.3-2.1.8a7.6 7.6 0 0 0-2.6-1.5L14.3 3h-3.9l-.3 2.2a7.6 7.6 0 0 0-2.6 1.5l-2.1-.8-1.9 3.3 1.8 1.3a7.8 7.8 0 0 0 0 3l-1.8 1.3 1.9 3.3 2.1-.8a7.6 7.6 0 0 0 2.6 1.5l.3 2.2h3.9l.3-2.2a7.6 7.6 0 0 0 2.6-1.5l2.1.8 1.9-3.3-1.8-1.3Z" stroke-linejoin="round"/></svg>
+    </a>
+  </nav>
+</div>
+
+<div id="drawerRoot" hidden>
+  <div class="drawer-scrim" data-close></div>
+  <aside class="drawer" role="dialog" aria-label="Navigation">
+    <div class="drawer-head">
+      <img src="assets/logo.svg" alt="" class="drawer-logo">
+      <div>
+        <div class="drawer-title">secondmind</div>
+        <div class="drawer-sub" id="drawerSync">nicht verbunden</div>
+      </div>
+    </div>
+    <nav class="drawer-nav">
+      <a href="#/" data-route="home"><span class="di">🏠</span> Start</a>
+      <a href="#/archiv" data-route="archiv"><span class="di">🗂</span> Archiv</a>
+      <a href="#/memory" data-route="memory"><span class="di">🧠</span> Memory</a>
+      <a href="#/einstellungen" data-route="einstellungen"><span class="di">⚙︎</span> Einstellungen</a>
+    </nav>
+    <div class="drawer-foot">
+      <div class="drawer-stat" id="drawerStats">–</div>
+      <div class="drawer-ver">secondmind 1.0</div>
+    </div>
+  </aside>
+</div>
+
+<div id="sheetRoot"></div>
+<div id="toastRoot" aria-live="polite"></div>
+
+<script type="module" src="js/main.js"></script>
+</body>
+</html>
