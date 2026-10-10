@@ -17,10 +17,14 @@ secondmind/
 
 ## Installation
 
-1. `dist/secondmind-Setup-1.0.0.exe` (oder die Portable-Datei) aus dem Release/`dist`-Ordner starten.
+1. Aus dem Release herunterladen:
+   - [`secondmind-Setup-1.0.0.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.0/secondmind-Setup-1.0.0.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.0-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.0/secondmind-1.0.0-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
+> Die Builds sind nicht code-signiert: Windows SmartScreen kann beim ersten Start warnen
+> („Weitere Informationen“ → „Trotzdem ausführen“).
 > Ohne Google-Verbindung läuft die App vollständig lokal weiter.
 
 ## Google Drive einrichten (einmalig)
@@ -109,3 +113,7 @@ Voraussetzungen: Node.js ≥ 20. Der Build verwendet `electron-builder` (Windows
 ## Lizenz
 
 MIT
+
+## Siehe auch
+
+- [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
