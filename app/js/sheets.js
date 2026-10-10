@@ -577,11 +577,13 @@ export function openTagSheet(recordId) {
 
 /* ---------------- Farbwähler (Hintergrund) ---------------- */
 
-/** 15 Hintergrundtöne + „Keine Farbe“ */
+/** 15 kräftige Hintergründe + „Keine Farbe“.
+    Die Textfarbe rechnet cardStyle() anhand der Luminanz automatisch um
+    (helle Töne = dunkle Schrift, kräftige/dunkle Töne = weiße Schrift). */
 export const BG_SWATCHS = [
-  '', '#FFF6D9', '#FFE9CC', '#FFE1D6', '#FFDCDC', '#FFDCE8',
-  '#F6E1FF', '#E9E1FF', '#DFE7FF', '#DCEEFF', '#DBF3FF',
-  '#DCF5EC', '#E2F5D9', '#F2F4D9', '#EDEDF2', '#E8E2DA',
+  '', '#FFD400', '#FFB300', '#FF8C00', '#FF5300', '#FF3B30',
+  '#FF2D55', '#E11D8C', '#AF52DE', '#5E5CE6', '#0A84FF', '#00A8CC',
+  '#00B386', '#34C759', '#A0703C', '#8E8E93',
 ];
 
 export function openBgSheet(recordId) {

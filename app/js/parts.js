@@ -15,7 +15,7 @@ function luminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
-export function cardStyle(bg) {
+export function cardStyle(bg, extra = '') {
   if (!bg) return '';
   const dark = luminance(bg) < 0.5;
   const fg = dark ? '#fff' : '#111';
@@ -23,7 +23,7 @@ export function cardStyle(bg) {
   const ter = dark ? 'rgba(255,255,255,.38)' : 'rgba(0,0,0,.35)';
   const fil = dark ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.08)';
   const sep = dark ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.12)';
-  return `style="background:${bg};color:${fg};--label-2:${sec};--label-3:${ter};--fill:${fil};--separator:${sep}"`;
+  return `style="background:${bg};color:${fg};--label-2:${sec};--label-3:${ter};--fill:${fil};--separator:${sep}${extra ? `;${extra}` : ''}"`;
 }
 
 const TPL = {

@@ -18,8 +18,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.4.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.4/secondmind-Setup-1.0.4.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.4-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.4/secondmind-1.0.4-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.5.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.5/secondmind-Setup-1.0.5.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.5-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.5/secondmind-1.0.5-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -119,6 +119,10 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.5
+- **Intensivere Hintergrundfarben**: Die 15 Hintergrundtöne sind jetzt kräftig gesättigt (Gelb, Orange, Rot, Pink, Violett, Blau, Türkis, Grün, Braun, Grau) – die Kontraste sind klar erkennbar
+- **Automatische Schriftfarbe überall**: Helle Töne bekommen dunkle Schrift, kräftige/dunkle Töne weiße Schrift – auch im Titel der Listen-Detailansicht (war vorher immer schwarz)
 
 ### 1.0.4
 - **Kalender als echtes Wochenraster**: 24-Stunden-Zeitachse links, 7 Tagesspalten nebeneinander – Termine stehen positionsgenau auf ihrem Wochentag und ihrer Uhrzeit; die Ansicht springt direkt zur aktuellen Zeit

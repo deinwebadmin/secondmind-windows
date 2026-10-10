@@ -252,7 +252,7 @@ function renderList(id) {
       </div>
     </div>
 
-    <div class="detail-title" data-act="edit-title" style="${list.bg ? `background:${list.bg};color:#111;border-radius:12px;padding:6px 10px` : ''}">${esc(list.title || 'Ohne Titel')}</div>
+    <div class="detail-title" data-act="edit-title" ${cardStyle(list.bg, 'border-radius:12px;padding:6px 10px')}>${esc(list.title || 'Ohne Titel')}</div>
     <div class="detail-sub">
       <span class="tpl-badge ${t.cls}">${t.label}</span>
       <span>${openCount} offen · ${doneCount} erledigt</span>
