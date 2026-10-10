@@ -54,6 +54,8 @@ export async function initTokens() {
     connected: !!tokens?.refresh_token,
     account: tokens?.email || '',
   });
+  // Konto-Check: nach App-Start ggf. Cache alter Drive-IDs verwerfen
+  if (tokens?.email) await ensureAccount(tokens.email);
   return tokens;
 }
 
@@ -65,10 +67,36 @@ function saveTokens(t) {
 export async function disconnect() {
   tokens = null;
   secureDel('tokens');
+  await resetDriveCache();
+  await db.kvDel('driveAccount');
+  setStatus({ connected: false, account: '', state: 'idle', message: '' });
+}
+
+/* ---------------- Konto & Ordner-Cache ---------------- */
+
+async function resetDriveCache() {
   await db.kvDel('driveFolder');
   await db.kvDel('driveDbFile');
   await db.kvDel('driveDbMd5');
-  setStatus({ connected: false, account: '', state: 'idle', message: '' });
+  await db.kvDel('driveDbModified');
+}
+
+/**
+ * Schutz vor Konto-Wechseln: gehörten die gecachten Drive-IDs noch zum
+ * vorherigen Google-Konto, werden sie verworfen – sonst würde secondmind im
+ * fremden Ordner nach seinen Daten suchen. So kann jeder Nutzer sein eigenes
+ * Konto (und mehrere Geräte) nutzen.
+ * @returns {Promise<boolean>} true, wenn das Konto gewechselt wurde
+ */
+async function ensureAccount(email) {
+  if (!email) return false;
+  const prev = await db.kvGet('driveAccount');
+  await db.kvSet('driveAccount', email);
+  if (prev && prev !== email) {
+    await resetDriveCache();
+    return true;
+  }
+  return false;
 }
 
 async function ensureAccess() {
@@ -148,13 +176,19 @@ export async function exchangeCode(code, redirectUri) {
   await saveTokens(t);
   setStatus({ connected: true, state: 'ok', message: '' });
 
+  let switched = false;
   try {
     const at = await ensureAccess();
     const info = await (await fetch(USERINFO, { headers: { Authorization: `Bearer ${at}` } })).json();
-    if (info.email) { t.email = info.email; await saveTokens(t); setStatus({ account: info.email }); }
+    if (info.email) {
+      t.email = info.email;
+      await saveTokens(t);
+      switched = await ensureAccount(info.email);
+      setStatus({ account: info.email });
+    }
   } catch { /* userinfo ist optional */ }
 
-  return { ok: true };
+  return { ok: true, switched };
 }
 
 function fmtAuthError(e) {
@@ -248,6 +282,11 @@ async function pull(folderId) {
   if (!fileId) return false;
 
   const metaRes = await api(`/files/${fileId}?fields=id,md5Checksum,modifiedTime,version`);
+  if (metaRes.status === 404) {          // Datei ist weg (anderes Konto, gelöscht)
+    await db.kvDel('driveDbFile');
+    await db.kvDel('driveDbMd5');
+    return false;
+  }
   if (!metaRes.ok) return false;
   const meta = await metaRes.json();
   const seen = await db.kvGet('driveDbMd5');
@@ -264,7 +303,7 @@ async function pull(folderId) {
   return changed;
 }
 
-async function push(folderId) {
+async function push(folderId, allowRecreate = true) {
   let fileId = await findDbFile(folderId);
   const payload = snapshot();
   const dirty = new Set(payload.records.filter((r) => r.dirty).map((r) => r.id));
@@ -280,6 +319,11 @@ async function push(folderId) {
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(meta),
     });
+    if (res.status === 404 && allowRecreate) {
+      // Ordner existiert in diesem Konto nicht (mehr) – neuen suchen/anlegen
+      await db.kvDel('driveFolder');
+      return push(await findOrCreateFolder(), false);
+    }
     const created = res.ok ? await res.json() : null;
     if (!created?.id) throw new Error('Drive-Datei konnte nicht erstellt werden');
     fileId = created.id;
@@ -299,7 +343,13 @@ async function push(folderId) {
       // Jemand war schneller: neu einlesen, mergen, einmal wiederholen
       await db.kvDel('driveDbMd5');
       await pull(folderId);
-      return push(folderId);
+      return push(folderId, allowRecreate);
+    }
+    if (up.status === 404 && allowRecreate) {
+      // Datei existiert in diesem Konto nicht mehr – neu anlegen
+      await db.kvDel('driveDbFile');
+      await db.kvDel('driveDbMd5');
+      return push(folderId, false);
     }
     if (!up.ok) throw new Error('Sync-Upload fehlgeschlagen');
     const fin = await up.json();

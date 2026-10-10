@@ -272,6 +272,11 @@ export function openItemSheet(itemId) {
         <span class="r-value">${note ? esc(note.title || 'Notiz ohne Titel') : 'Keine'}</span>
         <span class="chev">›</span>
       </button>
+      ${note ? `
+      <button class="row tappable" data-open-note>
+        <span class="r-label">Verknüpfte Notiz öffnen</span>
+        <span class="chev">›</span>
+      </button>` : ''}
     </div>
 
     <div class="settings-group">
@@ -323,14 +328,22 @@ export function openItemSheet(itemId) {
         handle.close();
         openNotePicker({
           title: 'Notiz verknüpfen',
-          onPick: (noteId) => { if (db.byId(itemId)) db.update(itemId, { noteId }); },
+          current: item.noteId,
+          allowUnlink: true,
+          onPick: (noteId) => linkNoteToItem(itemId, noteId),
+          onUnlink: () => linkNoteToItem(itemId, null),
           onCreate: () => {
             const n = db.create('note', { title: ta.value || '', text: '' });
-            if (db.byId(itemId)) db.update(itemId, { noteId: n.id });
+            linkNoteToItem(itemId, n.id);
             return n.id;
           },
         });
       };
+
+      sheet.querySelector('[data-open-note]')?.addEventListener('click', () => {
+        handle.close();
+        navigate(`#/notiz/${item.noteId}`);
+      });
 
       sheet.querySelector('[data-archive]').onclick = () => {
         handle.close();
@@ -372,7 +385,31 @@ export function deleteItem(itemId) {
 
 /* ---------------- Notiz-Wähler ---------------- */
 
-export function openNotePicker({ title = 'Notiz wählen', current = null, onPick, onCreate }) {
+/**
+ * Punkt und Notiz beidseitig verknüpfen.
+ * noteId = null löst die Verknüpfung – beide Seiten werden konsistent gehalten
+ * (item.noteId und note.linkedItems), damit auch das Gegenstück darauf zeigt.
+ */
+export function linkNoteToItem(itemId, noteId) {
+  const item = db.byId(itemId);
+  if (!item || item.kind !== 'item') return;
+
+  const prev = item.noteId ? db.byId(item.noteId) : null;
+  const next = noteId ? db.byId(noteId) : null;
+
+  if (prev && prev.id !== (next?.id || null)) {
+    db.update(prev.id, { linkedItems: (prev.linkedItems || []).filter((x) => x !== itemId) });
+  }
+  if (next) {
+    const set = new Set(next.linkedItems || []);
+    set.add(itemId);
+    db.update(next.id, { linkedItems: [...set] });
+  }
+  db.update(itemId, { noteId: next ? next.id : null });
+  haptic(8);
+}
+
+export function openNotePicker({ title = 'Notiz wählen', current = null, allowUnlink = false, onPick, onUnlink, onCreate }) {
   const notes = db.recs('note').sort((a, b) => b.updatedAt - a.updatedAt);
   const rows = notes.slice(0, 60).map((n) => `
     <button class="row tappable" data-pick="${n.id}">
@@ -386,6 +423,7 @@ export function openNotePicker({ title = 'Notiz wählen', current = null, onPick
     headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
     body: `
       ${onCreate ? `<button class="btn secondary" data-create style="margin-bottom:14px">＋ Neue Notiz erstellen</button>` : ''}
+      ${allowUnlink && current ? `<button class="btn secondary" data-unlink style="margin-bottom:14px">Verknüpfung lösen</button>` : ''}
       <div class="settings-group">
         ${rows || '<div class="row"><span class="r-label" style="color:var(--label-2)">Noch keine Notizen</span></div>'}
       </div>`,
@@ -395,6 +433,10 @@ export function openNotePicker({ title = 'Notiz wählen', current = null, onPick
         const id = onCreate();
         handle.close();
         if (id) navigate(`#/notiz/${id}`);
+      });
+      sheet.querySelector('[data-unlink]')?.addEventListener('click', () => {
+        handle.close();
+        onUnlink?.();
       });
       sheet.querySelectorAll('[data-pick]').forEach((b) => {
         b.onclick = () => { handle.close(); onPick?.(b.dataset.pick); };

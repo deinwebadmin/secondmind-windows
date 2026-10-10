@@ -102,9 +102,13 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
     sub && item.done ? 'item-sub-done' : '',
   ].filter(Boolean).join(' ');
 
+  // Verknüpfte Notiz als sichtbarer Rückverweis (antippbar)
+  const note = item.noteId ? db.byId(item.noteId) : null;
+  const noteTitle = note && !note.deleted ? (note.title || 'Notiz ohne Titel') : '';
+
   const tail = [];
   if (color) tail.push(`<span class="item-color dot-${esc(color)}" title="Dringlichkeit"></span>`);
-  if (item.noteId && db.byId(item.noteId)) tail.push(`${ICON.link.replace('<svg', '<svg class="item-linked"')}`);
+  if (noteTitle) tail.push(`${ICON.link.replace('<svg', '<svg class="item-linked"')}`);
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
   else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
 
@@ -113,6 +117,7 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
       <button class="check ${item.done ? 'on' : ''}" data-act="toggle" data-id="${item.id}" aria-label="Abhaken">${ICON.check}</button>
       <div class="item-body">
         <div class="item-text" contenteditable="true" spellcheck="false" data-edit="${item.id}">${esc(item.text)}</div>
+        ${noteTitle ? `<button class="linked-note" data-act="open-linked-note" data-id="${note.id}" title="Verknüpfte Notiz öffnen">📝 ${esc(noteTitle)}</button>` : ''}
       </div>
       <div class="item-tail">${tail.join('')}</div>
     </div>`;

@@ -6,7 +6,7 @@ import * as S from './sheets.js';
 import * as sync from './sync.js';
 import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex } from './util.js';
 import {
-  listCardHtml, noteCardHtml, parentGroupHtml, standaloneItemHtml, cardSwipeHtml,
+  listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
   bindSwipes, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
 } from './parts.js';
 import {
@@ -191,12 +191,9 @@ function renderList(id) {
   const doneParents = parents.filter((p) => p.done);
   const t = tplInfo(list.template);
 
-  const groupHtml = (p) => {
-    const kids = kidsOf(p.id);
-    return kids.length
-      ? parentGroupHtml(p, kids, { list, history: p.done })
-      : standaloneItemHtml(p, { list, history: p.done });
-  };
+  // Immer als Gruppe rendern: nur so ist „＋ Unterpunkt“ auch ohne bestehende
+  // Kinder erreichbar (in allen Vorlagen: Woche, Standard und Simpel).
+  const groupHtml = (p) => parentGroupHtml(p, kidsOf(p.id), { list, history: p.done });
 
   let body = '';
 
@@ -383,11 +380,8 @@ function openItemPicker(noteId) {
           const note = db.byId(noteId);
           const item = db.byId(itemId);
           if (!note || !item) return;
-          const linked = new Set(note.linkedItems || []);
-          if (linked.has(itemId)) linked.delete(itemId);
-          else linked.add(itemId);
-          db.update(noteId, { linkedItems: [...linked] });
-          db.update(itemId, { noteId: linked.has(itemId) ? noteId : null });
+          const on = (note.linkedItems || []).includes(itemId);
+          S.linkNoteToItem(itemId, on ? null : noteId);   // beidseitig setzen/lösen
           haptic(8);
           handle.close();
         };
@@ -476,6 +470,22 @@ function handleAction(act, id, el, e) {
       pruneEmptyItems();
       S.openItemSheet(id);
       return;
+
+    case 'open-linked-note': {
+      e.stopPropagation();
+      pruneEmptyItems();
+      const note = db.byId(id);
+      if (note && !note.deleted) navigate(`#/notiz/${id}`);
+      else S.toast('Diese Notiz existiert nicht mehr', { type: 'error' });
+      return;
+    }
+
+    case 'unlink-todo': {
+      e.stopPropagation();
+      S.linkNoteToItem(id, null);          // id = Punkt
+      S.toast('Verknüpfung gelöst');
+      return;
+    }
 
     case 'archive-done':
       e.stopPropagation();
@@ -573,7 +583,9 @@ async function doConnect() {
       return;
     }
     if (res?.ok) {
-      S.toast('Google Drive verbunden');
+      S.toast(res.switched
+        ? 'Konto gewechselt – secondmind nutzt jetzt dieses Google-Konto'
+        : 'Google Drive verbunden');
       sync.syncNow();
       render();
     }

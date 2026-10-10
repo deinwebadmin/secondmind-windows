@@ -4,7 +4,7 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
-import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic } from './util.js';
+import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION } from './util.js';
 import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bindSwipes, toggleItem, pruneEmptyItems } from './parts.js';
 import { navigate } from './router.js';
 
@@ -83,7 +83,10 @@ export function renderNote(id) {
             <button class="check ${it.done ? 'on' : ''}" data-act="toggle-linked" data-id="${it.id}">${ICON.check}</button>
             <div class="item-body">
               <div class="item-text">${esc(it.text)}</div>
-              <div class="card-meta">${esc(lst?.title || '')}</div>
+              <button class="linked-note" data-href="#/liste/${it.listId}" title="Zu der Liste springen">✅ ${esc(lst?.title || 'Liste ohne Titel')}</button>
+            </div>
+            <div class="item-tail">
+              <button class="a-del" data-act="unlink-todo" data-id="${it.id}" data-note="${note.id}" title="Verknüpfung lösen">×</button>
             </div>
           </div>`;
         }).join('') : '<div class="row"><span class="r-label" style="color:var(--label-2);font-size:15px">Noch keine Verknüpfung</span></div>'}
@@ -334,7 +337,7 @@ export function renderSettings() {
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
         <span class="r-label">OAuth Client-ID</span>
         <input class="text-in" id="clientId" placeholder="….apps.googleusercontent.com" value="${esc(s.clientId)}" spellcheck="false" autocapitalize="off">
-        <span class="r-note">Typ „Desktop-App“ in der Google Cloud Console erstellen und die Drive-API aktivieren. Beide Geräte teilen sich dieselbe ID.</span>
+        <span class="r-note">Typ „Desktop-App“ in der Google Cloud Console erstellen und die Drive-API aktivieren. Jeder Nutzer trägt seine eigene ID ein – alle Geräte eines Nutzers nutzen dieselbe ID.</span>
       </div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
         <span class="r-label">Zugriffsumfang</span>
@@ -348,6 +351,9 @@ export function renderSettings() {
         <span class="r-label" style="color:var(--accent)">${info.connected ? 'Verbindung trennen' : 'Mit Google verknüpfen'}</span>
         <span class="chev">›</span>
       </button>
+      <div class="row"><span class="r-note">${info.connected
+        ? `Verbunden mit ${esc(info.account || 'Google-Konto')}. Ein weiteres Gerät: dieselbe Client-ID eintragen und mit demselben Konto anmelden.`
+        : 'Jeder Nutzer verbindet sein eigenes Google-Konto. Alle Geräte eines Nutzers teilen sich die Daten über den Drive-Ordner „secondmind“.'}</span></div>
       <button class="row tappable" data-act="sync-now">
         <span class="r-label">Jetzt synchronisieren</span>
         <span class="chev">›</span>
@@ -413,7 +419,7 @@ export function renderSettings() {
       <div class="row"><span class="r-label">Offene Punkte</span><span class="r-value">${stats.open}</span></div>
       <div class="row"><span class="r-label">Archiv / Memory</span><span class="r-value">${stats.archived} / ${stats.memory}</span></div>
       <div class="row"><span class="r-label">Plattform</span><span class="r-value">${esc(info.platform)}</span></div>
-      <div class="row"><span class="r-label">Version</span><span class="r-value">1.0.0</span></div>
+      <div class="row"><span class="r-label">Version</span><span class="r-value">${APP_VERSION}</span></div>
     </div>
   `;
 
@@ -459,8 +465,21 @@ function bindSettings() {
       const data = JSON.parse(await f.text());
       const recs = Array.isArray(data) ? data : data.records;
       if (!Array.isArray(recs)) throw new Error('Unbekanntes Format');
+
+      // Einstellungen (inkl. Client-ID) übernehmen – praktisch für ein neues Gerät
+      let nSettings = 0;
+      if (!Array.isArray(data) && data.settings && typeof data.settings === 'object') {
+        for (const [k, v] of Object.entries(data.settings)) {
+          if (v === undefined) continue;
+          db.setSetting(k, v);
+          nSettings++;
+        }
+        if (data.settings.theme) applyTheme(data.settings.theme);
+        if (data.settings.syncInterval) sync.startSync();
+      }
+
       db.mergeRecords(recs.map((r) => ({ ...r, updatedAt: r.updatedAt || Date.now(), dirty: 1 })));
-      S.toast(`${recs.length} Datensätze importiert`);
+      S.toast(`${recs.length} Datensätze importiert${nSettings ? `, ${nSettings} Einstellungen` : ''}`);
       sync.syncNow();
     } catch (err) {
       S.toast('Import fehlgeschlagen: ' + err.message, { type: 'error' });
@@ -487,7 +506,13 @@ export function emptyState(icon, title, sub, extra = '') {
 }
 
 export function exportData() {
-  const payload = { app: 'secondmind', exportedAt: new Date().toISOString(), records: [...db.state.records.values()] };
+  const payload = {
+    app: 'secondmind',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    settings: { ...db.state.settings },     // Client-ID & Einstellungen übernehmen
+    records: [...db.state.records.values()],
+  };
   download(`secondmind-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2));
   S.toast('Export erstellt');
 }

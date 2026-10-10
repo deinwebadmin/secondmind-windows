@@ -567,6 +567,28 @@ a { color: var(--accent); text-decoration: none; }
 .item.done .item-text { color: var(--label-2); }
 .item-sub-done .item-text, .item.sub.done .item-text { color: var(--label-3); text-decoration: line-through; text-decoration-color: var(--label-3); }
 
+/* Rückverweis auf die verknüpfte Notiz bzw. Liste */
+.linked-note {
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+  max-width: 100%;
+  margin-top: 4px;
+  padding: 2px 8px;
+  border: 0;
+  border-radius: 999px;
+  background: var(--fill);
+  color: var(--label-2);
+  font-size: 12px;
+  line-height: 1.6;
+  text-align: left;
+  cursor: pointer;
+  -webkit-tap-highlight-color: transparent;
+  transition: opacity 140ms ease, transform 140ms var(--spring-bounce);
+}
+.linked-note span, .linked-note { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.linked-note:active { opacity: .55; transform: scale(.97); }
+
 .item-tail {
   display: flex; align-items: center; gap: 7px;
   margin-left: auto; padding-left: 8px;
@@ -707,14 +729,15 @@ a { color: var(--accent); text-decoration: none; }
 .attach .a-body { flex: 1; min-width: 0; }
 .attach .a-title { font-size: 15.5px; font-weight: 600; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
 .attach .a-sub { font-size: 13px; color: var(--label-2); overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-.attach .a-del {
+.attach .a-del, .item .a-del {
   width: 30px; height: 30px; border-radius: 50%;
   display: grid; place-items: center;
   color: var(--label-3);
   font-size: 17px;
   flex: none;
+  background: transparent;
 }
-.attach .a-del:active { background: var(--fill); color: var(--red); }
+.attach .a-del:active, .item .a-del:active { background: var(--fill); color: var(--red); }
 .attach.loading::after {
   content: "";
   position: absolute; left: 0; bottom: 0; height: 2px; width: 40%;
