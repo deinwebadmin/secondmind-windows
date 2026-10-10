@@ -362,6 +362,42 @@ export function openItemSheet(itemId) {
   });
 }
 
+/* ---------------- Farbwahl direkt aus der Punktzeile ---------------- */
+
+export function openItemColorSheet(itemId) {
+  const item = db.byId(itemId);
+  if (!item || item.kind !== 'item') return;
+
+  const colors = ['neutral', 'green', 'yellow', 'red'];
+
+  openSheet({
+    title: 'Farbe',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn strong" data-close>Fertig</button>',
+    body: `
+      <div class="settings-group">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:10px">
+          <div class="r-label">Punkt einfärben</div>
+          <div class="color-dots" data-colors>
+            ${colors.map((c) => `<button class="color-dot dot-${c} ${item.color === c ? 'sel' : ''}" data-color="${c}" aria-label="${COLOR_LABELS[c] || c}"></button>`).join('')}
+          </div>
+        </div>
+        <div class="row"><span class="r-note">Die Farbe färbt den ganzen Punkt bzw. Unterpunkt ein. „Neutral“ entfernt die Farbe.</span></div>
+      </div>`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+      sheet.querySelectorAll('[data-color]').forEach((b) => {
+        b.onclick = () => {
+          sheet.querySelectorAll('[data-color]').forEach((x) => x.classList.remove('sel'));
+          b.classList.add('sel');
+          haptic(6);
+          if (db.byId(itemId)) db.update(itemId, { color: b.dataset.color });
+        };
+      });
+    },
+  });
+}
+
 export function archiveItem(itemId) {
   const it = db.byId(itemId);
   if (!it) return;

@@ -7,7 +7,7 @@ export const uid = () =>
 export const now = () => Date.now();
 
 /** App-Version (mit package.json / build.gradle abgleichen) */
-export const APP_VERSION = '1.0.1';
+export const APP_VERSION = '1.0.2';
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
@@ -135,6 +135,7 @@ export const ICON = {
   memory: sv('<path d="M12 4.5c-3.6 0-6 2.3-6 5.2 0 1.7.8 3 1.9 3.9-.4 1.1-1.9 1.9-1.9 3.6 0 2.9 2.5 5.3 6 5.3s6-2.4 6-5.3c0-1.7-1.5-2.5-1.9-3.6 1.1-.9 1.9-2.2 1.9-3.9 0-2.9-2.4-5.2-6-5.2Z"/>'),
   pin: sv('<path d="M9 4h6l-1 6 3.5 3.5H6.5L10 10 9 4Zm3 9.5V20"/>'),
   link: sv('<path d="M10 13.5a4 4 0 0 0 5.7.3l2.6-2.6a4 4 0 0 0-5.7-5.7L11 7.2M14 10.5a4 4 0 0 0-5.7-.3l-2.6 2.6a4 4 0 0 0 5.7 5.7L13 16.8"/>'),
+  clip: sv('<path d="M20.2 11.3l-8 8a4.6 4.6 0 0 1-6.5-6.5l8.4-8.4a3.1 3.1 0 1 1 4.4 4.4l-8.4 8.4a1.6 1.6 0 0 1-2.2-2.2l7.6-7.6"/>'),
   image: sv('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4.5-4.5L14 17m1.5-2L18 14.5"/>'),
   doc: sv('<path d="M13 3.5H7A1.5 1.5 0 0 0 5.5 5v14A1.5 1.5 0 0 0 7 20.5h10a1.5 1.5 0 0 0 1.5-1.5V9m-6.5-5.5L17 9m-6.5-5.5V9H17"/>'),
   more: sv('<circle cx="5.5" cy="12" r="1.4" fill="currentColor"/><circle cx="12" cy="12" r="1.4" fill="currentColor"/><circle cx="18.5" cy="12" r="1.4" fill="currentColor"/>'),

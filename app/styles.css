@@ -41,7 +41,6 @@
   --safe-r: env(safe-area-inset-right, 0px);
 
   --topbar-h: 56px;
-  --tabbar-h: 56px;
 
   --spring: cubic-bezier(.22, 1, .36, 1);
   --spring-bounce: cubic-bezier(.34, 1.56, .64, 1);
@@ -214,14 +213,14 @@ a { color: var(--accent); text-decoration: none; }
   overflow-y: auto;
   overflow-x: hidden;
   -webkit-overflow-scrolling: touch;
-  padding: 14px calc(16px + var(--safe-r)) calc(var(--tabbar-h) + var(--safe-b) + 88px) calc(16px + var(--safe-l));
+  padding: 14px calc(16px + var(--safe-r)) calc(var(--safe-b) + 92px) calc(16px + var(--safe-l));
   scroll-behavior: smooth;
 }
 
 #fab {
   position: fixed;
   right: calc(18px + var(--safe-r));
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 18px);
+  bottom: calc(var(--safe-b) + 18px);
   width: 58px; height: 58px;
   border-radius: 50%;
   background: var(--accent);
@@ -235,30 +234,13 @@ a { color: var(--accent); text-decoration: none; }
 #fab:active { transform: scale(.88); background: var(--accent-press); }
 #fab.hidden { transform: scale(.4); opacity: 0; pointer-events: none; }
 
-#tabbar {
-  position: fixed;
-  left: 0; right: 0; bottom: 0;
-  z-index: 35;
-  height: calc(var(--tabbar-h) + var(--safe-b));
-  padding-bottom: var(--safe-b);
-  display: flex;
-  justify-content: space-around;
-  align-items: center;
-  background: var(--bar);
-  -webkit-backdrop-filter: blur(22px) saturate(180%);
-  backdrop-filter: blur(22px) saturate(180%);
-  border-top: .5px solid var(--bar-border);
+#menuBtn svg {
+  width: 22px; height: 22px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
 }
-#tabbar a {
-  width: 52px; height: 40px;
-  display: grid; place-items: center;
-  border-radius: 12px;
-  color: var(--label-2);
-  transition: transform 200ms var(--spring), color 160ms ease;
-}
-#tabbar a svg { width: 25px; height: 25px; fill: none; stroke: currentColor; stroke-width: 1.7; stroke-linejoin: round; }
-#tabbar a:active { transform: scale(.9); }
-#tabbar a.active { color: var(--accent); }
 
 /* ---------- Titel & Abschnitte ---------- */
 
@@ -356,9 +338,55 @@ a { color: var(--accent); text-decoration: none; }
   line-height: 1.4;
   overflow: hidden;
   display: -webkit-box;
-  -webkit-line-clamp: 3;
+  -webkit-line-clamp: 5;
   -webkit-box-orient: vertical;
   white-space: pre-wrap;
+}
+
+/* Pin-Button direkt auf der Karte */
+.card-pin {
+  flex: none;
+  width: 30px; height: 30px;
+  margin: -3px -5px 0 0;
+  display: grid; place-items: center;
+  border-radius: 9px;
+  font-size: 14px;
+  color: var(--label-3);
+  background: transparent;
+  transition: transform 160ms var(--spring), background-color 140ms ease;
+}
+.card-pin:active { transform: scale(.86); background: var(--fill); }
+.card-pin.on { color: var(--orange); }
+
+/* Erste Hauptpunkte als Vorschau auf der Startseite */
+.card-items {
+  list-style: none;
+  margin: 9px 0 2px;
+  padding: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 5px;
+}
+.card-items li {
+  display: flex;
+  align-items: flex-start;
+  gap: 8px;
+  font-size: 14.5px;
+  color: var(--label-2);
+  line-height: 1.35;
+}
+.card-items .ci {
+  width: 14px; height: 14px;
+  margin-top: 3px;
+  border-radius: 50%;
+  border: 1.6px solid var(--label-3);
+  flex: none;
+}
+.card-items .cix {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 
 .pin-flag { color: var(--orange); font-size: 13px; flex: none; }
@@ -469,6 +497,12 @@ a { color: var(--accent); text-decoration: none; }
   transition: transform 340ms var(--spring);
 }
 .swipe.dragging .swipe-content { transition: none; }
+
+/* Einzelne Zeile innerhalb einer Gruppe: eigene Swipe-Einheit,
+   ohne Zwischenraum und ohne eigene Ecken (die Gruppe liefert beides). */
+.swipe.row-swipe { margin: 0; border-radius: 0; background: transparent; }
+.swipe.row-swipe .swipe-content { border-radius: 0; }
+.swipe.row-swipe + .swipe.row-swipe .item { box-shadow: inset 0 .5px 0 var(--separator); }
 
 /* ---------- Listen-Detail & Punkte ---------- */
 
@@ -598,6 +632,31 @@ a { color: var(--accent); text-decoration: none; }
   flex: none;
 }
 .item-linked { width: 15px; height: 15px; stroke: var(--label-3); fill: none; stroke-width: 1.8; }
+
+/* Farbcodierung: färbt den ganzen Punkt bzw. Unterpunkt */
+.item.item-c-green  { background: rgba(52, 199, 89, .14); }
+.item.item-c-yellow { background: rgba(255, 204, 0, .18); }
+.item.item-c-red    { background: rgba(255, 59, 48, .13); }
+.item.done.item-c-green  { background: rgba(52, 199, 89, .09); }
+.item.done.item-c-yellow { background: rgba(255, 204, 0, .12); }
+.item.done.item-c-red    { background: rgba(255, 59, 48, .08); }
+
+/* Direkt-Buttons in der Punktzeile: Farbe + Büroklammer */
+.row-btn {
+  width: 28px; height: 28px;
+  border-radius: 9px;
+  display: grid; place-items: center;
+  flex: none;
+  color: var(--label-3);
+  background: transparent;
+  transition: transform 150ms var(--spring), background-color 140ms ease, color 140ms ease;
+}
+.row-btn svg { width: 17px; height: 17px; }
+.row-btn:active { transform: scale(.86); background: var(--fill); }
+.row-btn.on { color: var(--accent); background: rgba(0, 122, 255, .10); }
+.row-btn.on.c-green  { color: var(--green); background: rgba(52, 199, 89, .16); }
+.row-btn.on.c-yellow { color: #d99a00; background: rgba(255, 204, 0, .22); }
+.row-btn.on.c-red    { color: var(--red); background: rgba(255, 59, 48, .14); }
 .item-open {
   color: var(--label-3);
   font-size: 13px;
@@ -1010,7 +1069,7 @@ a { color: var(--accent); text-decoration: none; }
 #toastRoot {
   position: fixed;
   left: 0; right: 0;
-  bottom: calc(var(--tabbar-h) + var(--safe-b) + 84px);
+  bottom: calc(var(--safe-b) + 84px);
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -1115,6 +1174,6 @@ a { color: var(--accent); text-decoration: none; }
 }
 
 @media (prefers-contrast: more) {
-  #topbar, #tabbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: var(--separator); }
+  #topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: var(--separator); }
   .card, .group, .settings-group { border: 1px solid var(--separator); }
 }

@@ -62,12 +62,6 @@ function applyPendingFocus() {
 }
 
 function updateTabs(name) {
-  document.querySelectorAll('#tabbar a').forEach((a) => {
-    const tab = a.dataset.tab;
-    const active = (tab === 'home' && (name === 'home' || name === 'liste' || name === 'notiz' || name === 'suche'))
-      || tab === name;
-    a.classList.toggle('active', active);
-  });
   document.querySelectorAll('.drawer-nav a').forEach((a) => {
     const r = a.dataset.route;
     a.classList.toggle('active', (r === 'home' && name === 'home') || r === name);
@@ -104,12 +98,12 @@ function renderHome() {
   }
 
   if (otherLists.length) {
-    html += `<div class="section-head"><h2>To-Do-Listen</h2><span class="sh-action" data-act="create-list">＋ Neu</span></div>`;
+    html += `<div class="section-head"><h2>To-Do-Listen</h2></div>`;
     html += otherLists.map((r) => swipeCard(r)).join('');
   }
 
   if (otherNotes.length) {
-    html += `<div class="section-head"><h2>Notizen</h2><span class="sh-action" data-act="create-note">＋ Neu</span></div>`;
+    html += `<div class="section-head"><h2>Notizen</h2></div>`;
     html += otherNotes.map((r) => swipeCard(r)).join('');
   }
 
@@ -181,7 +175,8 @@ function renderList(id) {
     return;
   }
 
-  const all = db.itemsOfList(id);
+  // Nur aktive Punkte: nach Memory/Archiv verschobene sind hier nicht mehr sichtbar
+  const all = db.itemsOfList(id).filter((i) => (i.state || 'active') === 'active');
   const parents = all.filter((i) => !i.parentId).sort((a, b) => (a.order || 0) - (b.order || 0));
   const kidsOf = (pid) => all.filter((i) => i.parentId === pid).sort((a, b) => (a.order || 0) - (b.order || 0));
   const isSimple = list.template === 'simple';
@@ -455,6 +450,42 @@ function handleAction(act, id, el, e) {
       return;
     }
     case 'goto-settings': navigate('#/einstellungen'); return;
+
+    /* --- Direktaktionen auf der Startseite / in der Punktzeile --- */
+    case 'pin-card': {
+      e.stopPropagation();
+      const rec = db.byId(id);
+      if (rec) {
+        db.update(id, { pinned: rec.pinned ? 0 : 1 });
+        haptic(8);
+        S.toast(rec.pinned ? 'Von der Startseite gelöst' : 'Angepinnt');
+      }
+      return;
+    }
+
+    case 'item-color':
+      e.stopPropagation();
+      S.openItemColorSheet(id);
+      return;
+
+    case 'item-link': {
+      e.stopPropagation();
+      const it = db.byId(id);
+      if (!it || it.kind !== 'item') return;
+      S.openNotePicker({
+        title: 'Notiz verknüpfen',
+        current: it.noteId,
+        allowUnlink: true,
+        onPick: (noteId) => S.linkNoteToItem(id, noteId),
+        onUnlink: () => S.linkNoteToItem(id, null),
+        onCreate: () => {
+          const n = db.create('note', { title: it.text || '', text: '' });
+          S.linkNoteToItem(id, n.id);
+          return n.id;
+        },
+      });
+      return;
+    }
 
     case 'toggle':
       e.stopPropagation();

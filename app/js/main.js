@@ -66,7 +66,11 @@ function wireDrawer() {
     setTimeout(() => { root.hidden = true; }, 380);
   };
 
-  document.getElementById('logoBtn').addEventListener('click', () => (root.hidden ? open() : close()));
+  document.getElementById('logoBtn').addEventListener('click', () => {
+    if (!root.hidden) close();
+    navigate('#/');
+  });
+  document.getElementById('menuBtn').addEventListener('click', () => (root.hidden ? open() : close()));
   root.querySelector('.drawer-scrim').addEventListener('click', close);
   root.querySelectorAll('.drawer-nav a').forEach((a) => a.addEventListener('click', () => setTimeout(close, 10)));
   document.addEventListener('keydown', (e) => { if (e.key === 'Escape' && !root.hidden) close(); });

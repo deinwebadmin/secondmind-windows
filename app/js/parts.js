@@ -45,24 +45,33 @@ export function progressOf(children) {
 /* ---------------- Karten (Home / Archiv / Suche) ---------------- */
 
 export function listCardHtml(list, { context = 'home' } = {}) {
-  const items = db.itemsOfList(list.id);
+  const items = db.itemsOfList(list.id).filter((i) => (i.state || 'active') === 'active');
   const parents = items.filter((i) => !i.parentId);
   const done = parents.filter((i) => i.done).length;
   const prog = parents.length ? Math.round((done / parents.length) * 100) : 0;
   const t = tplInfo(list.template);
+
+  // Erste 5 (offene) Hauptpunkte als Vorschau auf der Startseite
+  const preview = parents.filter((p) => !p.done && p.text.trim()).slice(0, 5);
 
   const meta = [
     list.template === 'woche' ? 'Wochenliste' : `${parents.length} Punkt${parents.length === 1 ? '' : 'e'}`,
     parents.length ? `${done} erledigt` : 'leer',
   ].join(' · ');
 
+  const pin = list.archived ? '' : `
+    <button class="card-pin ${list.pinned ? 'on' : ''}" data-act="pin-card" data-id="${list.id}"
+      aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${list.pinned ? '📌' : '📍'}</button>`;
+
   return `
     <div class="list-card card" data-href="#/liste/${list.id}" ${cardStyle(list.bg)}>
       <div class="card-top">
         <div class="card-emoji">${t.emoji}</div>
         <div class="card-title">${esc(list.title || 'Ohne Titel')}</div>
-        ${list.pinned ? `<span class="pin-flag">📌</span>` : ''}
+        ${pin}
       </div>
+      ${preview.length ? `<ul class="card-items">${preview.map((p) => `
+        <li><span class="ci"></span><span class="cix">${esc(p.text)}</span></li>`).join('')}</ul>` : ''}
       <div class="card-meta">
         <span class="tpl-badge ${t.cls}">${t.label}</span>
         <span>${esc(meta)}</span>
@@ -74,14 +83,21 @@ export function listCardHtml(list, { context = 'home' } = {}) {
 }
 
 export function noteCardHtml(note, { context = 'home' } = {}) {
-  const preview = (note.text || '').trim().slice(0, 220);
+  // Erste 5 Zeilen als Vorschau auf der Startseite
+  const lines = String(note.text || '').split('\n').map((s) => s.trim()).filter(Boolean).slice(0, 5);
+  const preview = lines.join('\n');
   const att = (note.files?.length || 0) + (note.links?.length || 0);
+
+  const pin = note.archived ? '' : `
+    <button class="card-pin ${note.pinned ? 'on' : ''}" data-act="pin-card" data-id="${note.id}"
+      aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${note.pinned ? '📌' : '📍'}</button>`;
+
   return `
     <div class="note-card card" data-href="#/notiz/${note.id}" ${cardStyle(note.bg)}>
       <div class="card-top">
         <div class="card-emoji">📝</div>
         <div class="card-title">${esc(note.title || 'Notiz ohne Titel')}</div>
-        ${note.pinned ? `<span class="pin-flag">📌</span>` : ''}
+        ${pin}
       </div>
       ${preview ? `<div class="card-preview">${esc(preview)}</div>` : ''}
       <div class="card-meta">
@@ -100,6 +116,7 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
     sub ? 'sub' : '',
     item.done ? 'done' : '',
     sub && item.done ? 'item-sub-done' : '',
+    color ? `item-c-${esc(color)}` : '',        // ganze Zeile einfärben
   ].filter(Boolean).join(' ');
 
   // Verknüpfte Notiz als sichtbarer Rückverweis (antippbar)
@@ -107,8 +124,11 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
   const noteTitle = note && !note.deleted ? (note.title || 'Notiz ohne Titel') : '';
 
   const tail = [];
-  if (color) tail.push(`<span class="item-color dot-${esc(color)}" title="Dringlichkeit"></span>`);
-  if (noteTitle) tail.push(`${ICON.link.replace('<svg', '<svg class="item-linked"')}`);
+  if (!history) {
+    // Direktzugriff in der Zeile: Farbe wählen + Notiz verknüpfen (Büroklammer)
+    tail.push(`<button class="row-btn color${color ? ` on c-${color}` : ''}" data-act="item-color" data-id="${item.id}" aria-label="Farbe wählen" title="Farbe">${ICON.palette}</button>`);
+    tail.push(`<button class="row-btn clip${noteTitle ? ' on' : ''}" data-act="item-link" data-id="${item.id}" aria-label="Notiz verknüpfen" title="Notiz verknüpfen">${ICON.clip}</button>`);
+  }
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
   else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
 
@@ -130,30 +150,37 @@ export function itemRightAction(list) {
   return { cls: 'memory', icon: ICON.memory, label: 'Memory' };
 }
 
-/** Gruppe: Hauptpunkt (+ Unterpunkte + Fortschritt) in einer Swipe-Einheit. */
+/** Gruppe: Hauptpunkt (+ Unterpunkte + Fortschritt).
+    Jede Zeile ist eine eigene Swipe-Einheit – Unterpunkte lassen sich damit
+    genauso wischen und löschen wie Hauptpunkte. */
 export function parentGroupHtml(parent, children, { list, history = false, context = 'list' } = {}) {
   const prog = progressOf(children);
   const ra = itemRightAction(list);
 
-  return `
-    <div class="swipe" data-swipe data-id="${parent.id}">
+  const bg = `
       <div class="swipe-bg">
         <div class="swipe-act left">${ICON.trash}<span>Löschen</span></div>
         <div class="swipe-act right ${ra.cls}">${ra.icon}<span>${ra.label}</span></div>
-      </div>
-      <div class="swipe-content">
-        <div class="group" style="margin-bottom:0;border-radius:var(--r-lg)">
-          <div class="item-row">
-            ${itemRowHtml(parent, { history, list })}
-            ${prog ? `<div class="item-progress"><i style="width:${prog.pct}%"></i></div>` : ''}
-          </div>
-          ${children.map((c) => itemRowHtml(c, { sub: true, history: false, list })).join('')}
-          ${history ? '' : `
-            <button class="add-sub" data-act="add-sub" data-id="${parent.id}">
-              <span class="plus">＋</span> Unterpunkt
-            </button>`}
-        </div>
-      </div>
+      </div>`;
+
+  const rowSwipe = (inner, id) => `
+    <div class="swipe row-swipe" data-swipe data-id="${id}">
+      ${bg}
+      <div class="swipe-content">${inner}</div>
+    </div>`;
+
+  return `
+    <div class="group">
+      ${rowSwipe(`
+        <div class="item-row">
+          ${itemRowHtml(parent, { history, list })}
+          ${prog ? `<div class="item-progress"><i style="width:${prog.pct}%"></i></div>` : ''}
+        </div>`, parent.id)}
+      ${children.map((c) => rowSwipe(itemRowHtml(c, { sub: true, history: false, list }), c.id)).join('')}
+      ${history ? '' : `
+        <button class="add-sub" data-act="add-sub" data-id="${parent.id}">
+          <span class="plus">＋</span> Unterpunkt
+        </button>`}
     </div>`;
 }
 
