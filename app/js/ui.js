@@ -8,7 +8,6 @@ import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChi
 import {
   listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
   bindSwipes, bindItemDrag, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
-  archiveItemAction,
 } from './parts.js';
 import {
   renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
@@ -422,7 +421,7 @@ function handleAction(act, id, el, e) {
 
     case 'item-archive':
       e.stopPropagation();
-      archiveItemAction(id);            // Gedächtnis/Archiv inkl. Unterpunkten
+      S.archiveItem(id);                 // immer ins Archiv, inkl. Unterpunkten
       return;
 
     case 'card-tags':

@@ -291,7 +291,7 @@ export function renderMemory() {
 
   if (!items.length) {
     return view().innerHTML = html + emptyState('🧠', 'Noch nichts gemerkt',
-      'Wische Punkte nach links oder nutze den Archiv-Button in der Punktzeile.');
+      'Wische Punkte nach links, um sie hier abzulegen.');
   }
 
   // Hauptpunkte mit ihren Unterpunkten bündeln – die Gruppe wird vollständig angezeigt

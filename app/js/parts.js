@@ -141,9 +141,9 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
       tail.push(`<button class="row-btn cal${item.plan ? ' on' : ''}" data-act="item-plan" data-id="${item.id}" aria-label="In den Kalender einplanen" title="Einplanen">${ICON.calendar}</button>`);
     }
     tail.push(`<button class="row-btn clip${noteTitle ? ' on' : ''}" data-act="item-link" data-id="${item.id}" aria-label="Notiz verknüpfen" title="Notiz verknüpfen">${ICON.clip}</button>`);
-    // Direkt ins Archiv bzw. in den Memory – dieselbe Aktion wie Wischen nach links
-    const ra = itemRightAction(list);
-    tail.push(`<button class="row-btn arch" data-act="item-archive" data-id="${item.id}" aria-label="${ra.label}" title="${ra.label}">${ICON.archive}</button>`);
+    // Direkt ins Archiv (unabhängig von der Wisch-Aktion, die je nach
+    // Vorlage auch ins Memory führt)
+    tail.push(`<button class="row-btn arch" data-act="item-archive" data-id="${item.id}" aria-label="Ins Archiv" title="Ins Archiv">${ICON.archive}</button>`);
   }
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
   else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
@@ -151,8 +151,12 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
   const planTag = item.plan?.date && !history && db.getSetting('calendarEnabled') ? `
     <button class="plan-tag" data-act="item-plan" data-id="${item.id}" title="Termin ändern">📅 ${esc(item.plan.time || '')}${item.plan.dur ? ` · ${item.plan.dur} Min` : ''}</button>` : '';
 
+  // Griff zum Verschieben am linken Rand (nur außerhalb von Archiv/Memory)
+  const handle = history ? '' : `<button class="drag-handle" type="button" aria-label="Verschieben" title="Verschieben (halten und ziehen)">${ICON.grip}</button>`;
+
   return `
     <div class="${cls}" data-act="open-item" data-id="${item.id}">
+      ${handle}
       <button class="check ${item.done ? 'on' : ''}" data-act="toggle" data-id="${item.id}" aria-label="Abhaken">${ICON.check}</button>
       <div class="item-body">
         <div class="item-text" contenteditable="true" spellcheck="false" data-edit="${item.id}">${esc(item.text)}</div>
@@ -344,10 +348,10 @@ function bindSwipe(container) {
 
 /* ---------------- Reihenfolge per Drag & Drop ---------------- */
 
-/** Punktzeilen lassen sich nach kurzem Drücken verschieben: Hauptpunkte
-    innerhalb ihrer Ebene (in Wochenlisten auch auf einen anderen Tag),
-    Unterpunkte innerhalb ihres Hauptpunkts. Horizontal wischen bleibt
-    Swipe-Aktion (Archiv/Memory/Löschen). */
+/** Punktzeilen lassen sich über den Griff am linken Rand (6-Punkte-Symbol,
+    halten und ziehen) verschieben: Hauptpunkte innerhalb ihrer Ebene (in
+    Wochenlisten auch auf einen anderen Tag), Unterpunkte innerhalb ihres
+    Hauptpunkts. Horizontal wischen bleibt Swipe-Aktion (Archiv/Memory/Löschen). */
 export function bindItemDrag(scope = document) {
   scope.querySelectorAll('.swipe[data-swipe]').forEach(bindRowDrag);
 }
@@ -405,12 +409,17 @@ function bindRowDrag(container) {
     haptic(10);
   };
 
-  container.addEventListener('pointerdown', (e) => {
-    if (active || timer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
-    if (e.target.closest('button')) return;   // Buttons bleiben klickbar
-    pid = e.pointerId; sx = e.clientX; sy = e.clientY;
-    timer = setTimeout(begin, 280);           // langes Drücken startet das Ziehen
-  });
+  // Ziehen über den Griff am linken Rand (6-Punkte-Symbol): halten und ziehen
+  const handle = container.querySelector('.drag-handle');
+  if (handle) {
+    handle.addEventListener('pointerdown', (e) => {
+      if (active || timer !== null || (e.pointerType === 'mouse' && e.button !== 0)) return;
+      pid = e.pointerId; sx = e.clientX; sy = e.clientY;
+      timer = setTimeout(begin, 80);            // kurzes Halten, dann Ziehen
+    });
+    // Tipp auf den Griff tut nichts (Öffnen des Punkts verhindern)
+    handle.addEventListener('click', (ev) => { ev.stopPropagation(); ev.preventDefault(); });
+  }
 
   container.addEventListener('pointermove', (e) => {
     if (pid === null || e.pointerId !== pid) return;
@@ -554,10 +563,6 @@ function handleSwipeAction(id, dir, mode) {
 function restoreListOrNote(id) {
   db.update(id, { deleted: 0 });
 }
-
-/** Archiv-Button in der Punktzeile: gleiche Aktion wie Wischen nach links
-    (Memory, bzw. Archiv bei einfacher Liste oder deaktiviertem Memory). */
-export const archiveItemAction = (id) => handleSwipeAction(id, 'left', 'list');
 
 /* ---------------- Punkte-Aktionen ---------------- */
 
