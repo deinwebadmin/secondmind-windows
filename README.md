@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.8.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.8/secondmind-Setup-1.0.8.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.8-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.8/secondmind-1.0.8-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.9.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.9/secondmind-Setup-1.0.9.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.9-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.9/secondmind-1.0.9-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,9 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.9
+- **Kein lila Punkt mehr oben rechts**: Der Sync-Status-Punkt ist unsichtbar, solange es nichts zu melden ist (Start) oder Google Drive nicht verbunden ist; grün/orange/rot für synchronisiert/synchronisieren/Fehler bleiben erhalten, ein Tipp auf die Stelle öffnet weiterhin die Einstellungen
 
 ### 1.0.8
 - **Archiv-Button trifft immer das Archiv**: Der Archiv-Button in der Punktzeile verschiebt den Punkt mit allen Unterpunkten jetzt wirklich ins Archiv – unabhängig von der Wisch-Aktion, die je nach Vorlage auch ins Memory führt
