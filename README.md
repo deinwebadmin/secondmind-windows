@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.9.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.9/secondmind-Setup-1.0.9.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.9-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.9/secondmind-1.0.9-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.10.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.10/secondmind-Setup-1.0.10.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.10-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.10/secondmind-1.0.10-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,9 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.10
+- **Kalender: To-Do per Tipp einplanen**: Tipp auf ein leeres Zeitfenster im Wochenraster öffnet den Punktewähler mit Datum/Uhrzeit der Fläche vorausgefüllt (auch zum Verschieben bereits eingeplanter Punkte); der Button „＋ To-Do einplanen" unter dem Raster ist entfallen
 
 ### 1.0.9
 - **Kein lila Punkt mehr oben rechts**: Der Sync-Status-Punkt ist unsichtbar, solange es nichts zu melden ist (Start) oder Google Drive nicht verbunden ist; grün/orange/rot für synchronisiert/synchronisieren/Fehler bleiben erhalten, ein Tipp auf die Stelle öffnet weiterhin die Einstellungen
