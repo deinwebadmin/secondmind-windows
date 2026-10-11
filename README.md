@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.11.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.11/secondmind-Setup-1.0.11.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.11-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.11/secondmind-1.0.11-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.12.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.12/secondmind-Setup-1.0.12.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.12-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.12/secondmind-1.0.12-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,9 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.12
+- **Chrono zeigt die neuesten Karten zuerst** (vorher älteste zuerst)
 
 ### 1.0.11
 - **Menü aufgeräumt**: „Start" und „Kalender" entfernt (Rückweg über Logo bzw. Kalender-Button in der Topbar)
