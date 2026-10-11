@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.7.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.7/secondmind-Setup-1.0.7.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.7-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.7/secondmind-1.0.7-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.8.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.8/secondmind-Setup-1.0.8.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.8-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.8/secondmind-1.0.8-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,10 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.8
+- **Archiv-Button trifft immer das Archiv**: Der Archiv-Button in der Punktzeile verschiebt den Punkt mit allen Unterpunkten jetzt wirklich ins Archiv – unabhängig von der Wisch-Aktion, die je nach Vorlage auch ins Memory führt
+- **Verschieben per Griff**: Jede Punktzeile (Haupt- und Unterpunkte) hat links ein 6-Punkte-Symbol – Halten und Ziehen sortiert die Reihenfolge neu (ersetzt das bisherige Long-Press-Ziehen); in Wochenlisten landet ein gezogener Punkt weiterhin automatisch auf dem Ziel-Tag
 
 ### 1.0.7
 - **In-App-Updates**: secondmind prüft alle 30 Minuten (und manuell in den Einstellungen) nach neuen Versionen und fragt „Jetzt aktualisieren oder Später?“. Beim Bestätigen wird das Update direkt geladen und installiert – Einträge, Einstellungen und die Drive-Verknüpfung bleiben vollständig erhalten
