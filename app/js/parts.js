@@ -65,7 +65,7 @@ export function listCardHtml(list, { context = 'home' } = {}) {
       aria-label="Tags bearbeiten" title="Tags">${ICON.tag}</button>`;
   const pin = list.archived ? '' : `
     <button class="card-pin ${list.pinned ? 'on' : ''}" data-act="pin-card" data-id="${list.id}"
-      aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${list.pinned ? '📌' : '📍'}</button>`;
+      aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
 
   return `
     <div class="list-card card" data-href="#/liste/${list.id}" ${cardStyle(list.bg)}>
@@ -99,7 +99,7 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
       aria-label="Tags bearbeiten" title="Tags">${ICON.tag}</button>`;
   const pin = note.archived ? '' : `
     <button class="card-pin ${note.pinned ? 'on' : ''}" data-act="pin-card" data-id="${note.id}"
-      aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">${note.pinned ? '📌' : '📍'}</button>`;
+      aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
 
   return `
     <div class="note-card card" data-href="#/notiz/${note.id}" ${cardStyle(note.bg)}>

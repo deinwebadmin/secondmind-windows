@@ -37,7 +37,7 @@ export function renderNote(id) {
       <button class="back-btn" data-act="back">${ICON.back}<span>Zurück</span></button>
       <div class="spacer"></div>
       <div class="detail-actions">
-        <button class="icon-btn" data-act="note-pin" aria-label="Anpinnen" title="Anpinnen">${note.pinned ? '📌' : '📍'}</button>
+        <button class="icon-btn pin-toggle ${note.pinned ? 'on' : ''}" data-act="note-pin" aria-label="Anpinnen" title="Anpinnen">📌</button>
         <button class="icon-btn" data-act="note-bg" aria-label="Hintergrundfarbe" title="Hintergrundfarbe">🎨</button>
         <button class="icon-btn" data-act="note-tags" aria-label="Tags bearbeiten" title="Tags bearbeiten">🏷</button>
         <button class="icon-btn" data-act="note-link" aria-label="Verknüpfen" title="Link oder To-Do verknüpfen">🔗</button>

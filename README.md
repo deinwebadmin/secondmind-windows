@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.15.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.15/secondmind-Setup-1.0.15.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.15-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.15/secondmind-1.0.15-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.16.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.16/secondmind-Setup-1.0.16.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.16-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.16/secondmind-1.0.16-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,9 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.16
+- **Anpinnen**: Der Pin-Button zeigt immer das 📌-Icon – **grau solange nicht angepinnt, farbig wenn aktiv** (gilt für die Karten auf der Startseite sowie die Pins im Listen- und Notiz-Detail; 📍 ist verschwunden)
 
 ### 1.0.15
 - **Dauer-Wahlrad**: Der Zeit-Button (📅) in der Zeile öffnet ein Dauer-Sheet mit iOS-artigem **Wahlrad** (15 Min bis 4 Std) – so lassen sich **Punkte und Unterpunkte schon vor dem Einplanen mit einer Dauer versehen** (Chip „⏱ 45 Min" in der Zeile, erneutes Tippen öffnet das Rad wieder; „Ohne Dauer" zum Zurücknehmen)

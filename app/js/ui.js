@@ -344,7 +344,7 @@ function renderList(id) {
       <button class="back-btn" data-act="back">${ICON.back}<span>Zurück</span></button>
       <div class="spacer"></div>
       <div class="detail-actions">
-        <button class="icon-btn" data-act="list-pin" aria-label="Anpinnen" title="Anpinnen">${list.pinned ? '📌' : '📍'}</button>
+        <button class="icon-btn pin-toggle ${list.pinned ? 'on' : ''}" data-act="list-pin" aria-label="Anpinnen" title="Anpinnen">📌</button>
         <button class="icon-btn" data-act="list-edit-title" aria-label="Titel bearbeiten" title="Titel bearbeiten">✏️</button>
         <button class="icon-btn" data-act="list-bg" aria-label="Hintergrundfarbe" title="Hintergrundfarbe">🎨</button>
         <button class="icon-btn" data-act="list-tags" aria-label="Tags bearbeiten" title="Tags bearbeiten">🏷</button>

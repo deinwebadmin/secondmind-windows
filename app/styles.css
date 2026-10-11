@@ -371,6 +371,18 @@ a { color: var(--accent); text-decoration: none; }
 }
 .card-pin:active, .card-tag:active { transform: scale(.86); background: var(--fill); }
 .card-pin.on { color: var(--orange); }
+/* Anpinnen: immer 📌 – grau solange nicht angepinnt, farbig wenn aktiv */
+.card-pin,
+.pin-toggle {
+  filter: grayscale(1);
+  opacity: .5;
+  transition: filter .18s ease, opacity .18s ease;
+}
+.card-pin.on,
+.pin-toggle.on {
+  filter: none;
+  opacity: 1;
+}
 .card-tag svg { width: 17px; height: 17px; }
 
 /* Erste Hauptpunkte als Vorschau auf der Startseite */
