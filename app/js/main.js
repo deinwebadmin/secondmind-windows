@@ -9,6 +9,7 @@ import { applyTheme } from './views.js';
 import { pruneEmptyItems } from './parts.js';
 import { onRoute, start as startRouter, navigate } from './router.js';
 import { platform } from './bridge.js';
+import * as U from './update.js';
 import { debounce, haptic } from './util.js';
 
 /* ---------------- Rendering mit Fokus-Schutz ---------------- */
@@ -178,7 +179,7 @@ async function boot() {
   });
 
   // Debug-/Entwickler-Schnittstelle
-  window.secondmind = { db, sync, sheets: S, render };
+  window.secondmind = { db, sync, sheets: S, render, update: U };
 
   // Sync starten
   await sync.initTokens();
@@ -186,6 +187,9 @@ async function boot() {
 
   // Beim Öffnen gleich Abgleich
   if (sync.status.connected) sync.syncNow();
+
+  // Update-Wächter: alle 30 Minuten nach neuen Releases suchen (nur Plattform-Apps)
+  U.startUpdateWatcher();
 
   console.info(`secondmind bereit (${platform})`);
 }

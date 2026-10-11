@@ -6,6 +6,11 @@ import { uid, now, debounce } from './util.js';
 const DB_NAME = 'secondmind';
 const DB_VER = 1;
 
+/* Fixe ID des synchronisierten Settings-Datensatzes: er liegt als singleton
+   in der Drive-Datei "secondmind.db.json" und überträgt Einstellungen
+   (Theme, Kalender/Memory, OAuth-Client-ID, …) automatisch auf neue Geräte. */
+export const SETTINGS_ID = '__settings__';
+
 const DEFAULT_SETTINGS = {
   confirmDelete: true,      // vor dem Löschen fragen
   memoryEnabled: true,      // Memory-Funktion an/aus
@@ -92,6 +97,14 @@ export async function loadAll() {
   const map = new Map(kv.map((e) => [e.k, e.v]));
   state.settings = { ...DEFAULT_SETTINGS, ...(map.get('settings') || {}) };
 
+  // Synchronisierter Settings-Datensatz: kommt er frisch aus dem Drive
+  // (neuer als die lokale Kopie), gewinnt er – so übernimmt ein neues
+  // Gerät sofort alle Einstellungen des ersten Geräts.
+  const srec = state.records.get(SETTINGS_ID);
+  if (srec?.data && (srec.updatedAt || 0) > (map.get('settingsAt') || 0)) {
+    applySettingsRecord(srec);
+  }
+
   state.ready = true;
   emit('change', { reason: 'load' });
   return state;
@@ -100,12 +113,46 @@ export async function loadAll() {
 /* ---------------- Settings ---------------- */
 
 export const getSetting = (k) => state.settings[k];
+
 export const setSetting = (k, v) => {
   state.settings[k] = v;
-  const cur = { ...state.settings };
-  tx('kv', 'readwrite', (s) => s.put({ k: 'settings', v: cur })).catch(() => {});
+  const at = now();
+  tx('kv', 'readwrite', (s) => {
+    s.put({ k: 'settings', v: { ...state.settings } });
+    s.put({ k: 'settingsAt', v: at });
+  }).catch(() => {});
+  putSettingsRecord(at);          // wandert über den Sync ins Drive
   emit('settings', { key: k, value: v });
 };
+
+/** Singleton-Datensatz für die Settings anlegen/aktualisieren (dirty -> Sync trägt ihn mit). */
+function putSettingsRecord(at) {
+  const rec = state.records.get(SETTINGS_ID) || {
+    id: SETTINGS_ID, kind: 'settings', createdAt: at, updatedAt: 0, deleted: 0, dirty: 1, data: {},
+  };
+  rec.data = { ...state.settings };
+  rec.updatedAt = at;
+  rec.dirty = 1;
+  state.records.set(rec.id, rec);
+  tx('records', 'readwrite', (s) => s.put(rec)).catch((e) => console.error('put settings', e));
+  notifyChange();
+  notifyDirty();
+}
+
+/** Einstellungen aus dem (neueren) synchronisierten Datensatz übernehmen. */
+function applySettingsRecord(rec) {
+  const before = { ...state.settings };
+  const next = { ...DEFAULT_SETTINGS, ...(rec.data || {}) };
+  state.settings = next;
+  const at = rec.updatedAt || 0;
+  tx('kv', 'readwrite', (s) => {
+    s.put({ k: 'settings', v: { ...next } });
+    s.put({ k: 'settingsAt', v: at });
+  }).catch(() => {});
+  for (const k of new Set([...Object.keys(before), ...Object.keys(next)])) {
+    if (before[k] !== next[k]) emit('settings', { key: k, value: next[k] });
+  }
+}
 
 /* ---------------- KV (Sonstiges: Sync-Token, Drive-IDs) ---------------- */
 
@@ -241,6 +288,7 @@ export function delBlob(id) {
 /** Datensätze aus Drive einspielen – LWW-Merge nach updatedAt. */
 export function mergeRecords(incoming) {
   let changed = false;
+  const settingsBefore = state.records.get(SETTINGS_ID)?.updatedAt || 0;
   for (const r of incoming) {
     if (!r || !r.id || !r.kind) continue;
     const local = state.records.get(r.id);
@@ -259,6 +307,9 @@ export function mergeRecords(incoming) {
     const all = [...state.records.values()];
     tx('records', 'readwrite', (s) => { for (const r of all) s.put(r); })
       .catch((e) => console.error('merge', e));
+    // Einstellungen aus dem Drive übernehmen (neueres Gerät gewinnt)
+    const srec = state.records.get(SETTINGS_ID);
+    if (srec && (srec.updatedAt || 0) > settingsBefore) applySettingsRecord(srec);
     notifyChange();
   }
   return changed;

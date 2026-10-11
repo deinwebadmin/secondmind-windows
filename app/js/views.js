@@ -7,6 +7,7 @@ import * as sync from './sync.js';
 import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VERSION, tagChip, mondayOfWeek, addDays, weekLabel, isoWeek, isoDate, WEEKDAYS_SHORT } from './util.js';
 import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bindSwipes, toggleItem, pruneEmptyItems } from './parts.js';
 import { navigate } from './router.js';
+import { platform } from './bridge.js';
 
 const view = () => document.getElementById('view');
 
@@ -694,6 +695,12 @@ export function renderSettings() {
       <div class="row"><span class="r-label">Archiv / Memory</span><span class="r-value">${stats.archived} / ${stats.memory}</span></div>
       <div class="row"><span class="r-label">Plattform</span><span class="r-value">${esc(info.platform)}</span></div>
       <div class="row"><span class="r-label">Version</span><span class="r-value">${APP_VERSION}</span></div>
+      ${platform !== 'web' ? `
+      <button class="row tappable" data-act="check-update">
+        <span class="r-label">Nach Updates suchen</span>
+        <span class="chev">›</span>
+      </button>
+      <div class="row"><span class="r-note">secondmind prüft alle 30 Minuten nach neuen Versionen und fragt, ob direkt aktualisiert werden soll. Einträge, Einstellungen und Drive-Verknüpfung bleiben dabei erhalten.</span></div>` : ''}
     </div>
   `;
 

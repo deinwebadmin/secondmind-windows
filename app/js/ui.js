@@ -14,6 +14,7 @@ import {
   renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
 } from './views.js';
 import { navigate, parse } from './router.js';
+import { checkForUpdate } from './update.js';
 
 let query = '';
 let pendingFocus = null;
@@ -599,6 +600,7 @@ function handleAction(act, id, el, e) {
     case 'export': exportData(); return;
     case 'import': document.getElementById('importPicker')?.click(); return;
     case 'wipe': doWipe(); return;
+    case 'check-update': checkForUpdate({ manual: true }); return;
   }
 }
 

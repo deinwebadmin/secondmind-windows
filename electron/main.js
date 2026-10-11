@@ -8,6 +8,7 @@ const { app, BrowserWindow, ipcMain, shell, safeStorage } = require('electron');
 const http = require('http');
 const fs = require('fs');
 const path = require('path');
+const { spawn } = require('child_process');
 
 const APP_DIR = path.join(__dirname, '..', 'app');
 const MIME = {
@@ -154,6 +155,57 @@ ipcMain.handle('sm:decrypt', (_e, cipher) => {
 
 ipcMain.on('sm:open-external', (_e, url) => {
   if (typeof url === 'string' && /^https?:\/\//i.test(url)) shell.openExternal(url);
+});
+
+/* ---------------- In-App-Update ---------------- */
+
+/**
+ * Update herunterladen und starten.
+ * Installierte Variante: NSIS-Setup still ausführen (/S) – die App schließt
+ * sich, das Setup ersetzt die Dateien. Nutzerdaten in %APPDATA% bleiben.
+ * Portable Variante: neue EXE neben die alte legen und starten.
+ */
+ipcMain.handle('sm:update-app', async (_e, target) => {
+  try {
+    const ver = String(target?.version || '').replace(/[^\w.\-]/g, '');
+    if (!ver) return { error: 'keine Versionsangabe' };
+
+    const exeDir = path.dirname(process.execPath);
+    const installed = fs.existsSync(path.join(exeDir, 'Uninstall secondmind.exe'));
+    const url = installed ? target?.setupUrl : (target?.portableUrl || target?.setupUrl);
+    if (!/^https:\/\/github\.com\//i.test(String(url || ''))) return { error: 'ungültige Download-URL' };
+
+    // Download (GitHub leitet auf objects.githubusercontent.com um)
+    const res = await fetch(url);
+    if (!res.ok) return { error: 'Download fehlgeschlagen (HTTP ' + res.status + ')' };
+    const buf = Buffer.from(await res.arrayBuffer());
+    if (buf.length < 1_000_000) return { error: 'Download unvollständig' };
+
+    if (installed) {
+      // Still-Setup in den Temp kopieren, mit Verzögerung starten (die App
+      // ist bis dahin beendet), danach schließt secondmind sich selbst.
+      const file = path.join(app.getPath('temp'), `secondmind-setup-${ver}.exe`);
+      fs.writeFileSync(file, buf);
+      const cmd = `timeout /t 2 /nobreak >nul & start "" "${file}" /S`;
+      spawn('cmd.exe', ['/c', cmd], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      setTimeout(() => app.quit(), 500);
+      return { ok: true, mode: 'setup' };
+    }
+
+    // Portable: neue Version starten (gleicher Ordner, sonst Temp)
+    let file = path.join(exeDir, `secondmind ${ver}.exe`);
+    try {
+      fs.writeFileSync(file, buf);
+    } catch {
+      file = path.join(app.getPath('temp'), `secondmind ${ver}.exe`);
+      fs.writeFileSync(file, buf);
+    }
+    spawn(file, [], { detached: true, stdio: 'ignore' }).unref();
+    setTimeout(() => app.quit(), 500);
+    return { ok: true, mode: 'portable' };
+  } catch (e) {
+    return { error: e?.message || 'Update fehlgeschlagen' };
+  }
 });
 
 /* ---------------- Start ---------------- */

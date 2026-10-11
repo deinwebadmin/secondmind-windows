@@ -133,5 +133,30 @@ export function openExternal(url) {
   });
 }
 
+/**
+ * Update installieren.
+ * Windows (Electron): main.js lädt Setup/Portable und startet sie.
+ * Android (Capacitor): Plugin lädt die APK und öffnet den System-Installer.
+ * Liefert { ok } oder { error } bzw. { needsPermission }.
+ */
+export async function applyUpdate(target) {
+  try {
+    if (window.sm?.updateApp) return await window.sm.updateApp(target);
+    const p = await nativePlugin();
+    if (p?.installApk && target?.url) {
+      try {
+        return await p.installApk({ url: target.url });
+      } catch (e) {
+        const msg = String(e?.message || e || '');
+        if (msg.includes('permission')) return { needsPermission: true };
+        return { error: msg || 'Installation nicht möglich' };
+      }
+    }
+    return { error: 'Updates werden auf dieser Plattform nicht unterstützt' };
+  } catch (e) {
+    return { error: e?.message || 'Update nicht möglich' };
+  }
+}
+
 /** Kamera/Galerie: Datei-Eingabe ist plattformübergreifend identisch. */
 export const supportsFilePicker = true;

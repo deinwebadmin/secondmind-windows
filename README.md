@@ -9,6 +9,7 @@ secondmind/
 ├── app/                 Web-App (HTML/CSS/ES-Module) – identisch zur Android-Version
 │   ├── js/db.js         Lokale Datenbank (IndexedDB)
 │   ├── js/sync.js       Google-Drive-Anbindung, 60-Sekunden-Takt, Offline-Puffer
+│   ├── js/update.js     In-App-Update-Check (alle 30 Minuten) + Installation
 │   ├── js/bridge.js     Plattform-Bridge (hier: Electron-Preload "sm")
 │   └── js/{ui,views,sheets,parts}.js   Oberfläche
 ├── electron/main.js     Local-Server + OAuth-Loopback + Token-Verschlüsselung (DPAPI)
@@ -18,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.6.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.6/secondmind-Setup-1.0.6.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.6-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.6/secondmind-1.0.6-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.7.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.7/secondmind-Setup-1.0.7.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.7-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.7/secondmind-1.0.7-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -119,6 +120,10 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.7
+- **In-App-Updates**: secondmind prüft alle 30 Minuten (und manuell in den Einstellungen) nach neuen Versionen und fragt „Jetzt aktualisieren oder Später?“. Beim Bestätigen wird das Update direkt geladen und installiert – Einträge, Einstellungen und die Drive-Verknüpfung bleiben vollständig erhalten
+- **Einstellungen synchronisieren**: Theme, Kalender-/Memory-Schalter, OAuth-Client-ID usw. liegen jetzt als eigener Datensatz in der Drive-Datei. Ein zweites Gerät übernimmt nach dem Verbinden automatisch alle Einstellungen des ersten Geräts (Tags und Tag-Farben lieferten ohnehin schon die Listen-/Notiz-Datensätze)
 
 ### 1.0.6
 - **Archiv-Button an jedem Punkt**: Direkt in der Punktzeile (neben Farbe, Kalender und Büroklammer) – verschiebt den Punkt mit einem Tipp ins Memory (bzw. ins Archiv bei Simpel-Listen), inklusive Rückgängig-Toast
