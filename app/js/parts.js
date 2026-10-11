@@ -146,7 +146,6 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
     tail.push(`<button class="row-btn arch" data-act="item-archive" data-id="${item.id}" aria-label="Ins Archiv" title="Ins Archiv">${ICON.archive}</button>`);
   }
   if (history && !sub) tail.push(`<button class="check hist" data-act="archive-done" data-id="${item.id}" aria-label="Ins Archiv">${ICON.check}</button>`);
-  else if (!sub) tail.push(`<button class="item-open" data-act="open-item" data-id="${item.id}" aria-label="Optionen">›</button>`);
 
   const planTag = item.plan?.date && !history && db.getSetting('calendarEnabled') ? `
     <button class="plan-tag" data-act="item-plan" data-id="${item.id}" title="Termin ändern">📅 ${esc(item.plan.time || '')}${item.plan.dur ? ` · ${item.plan.dur} Min` : ''}</button>` : '';
