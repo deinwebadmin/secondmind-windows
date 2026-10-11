@@ -75,8 +75,10 @@ function updateTabs(name) {
    Start-Ansicht
    ============================================================ */
 
-/* Filter der Startseite (lebt so lange wie die Sitzung) */
-let homeMode = 'alle';        // 'alle' | 'dringend' | 'chrono'
+/* Filter der Startseite (lebt so lange wie die Sitzung):
+   zwei unabhängige Kipptaster + Tag-Auswahl */
+let homeDringend = false;     // nur Listen mit dringlichen Punkten
+let homeNeuste = false;       // neueste Karten zuerst
 let homeTag = null;           // Tag-Name oder null
 
 /* Punkt-Farben, die als Dringlichkeit gelten (rot = dringend, gelb = mittel) */
@@ -102,7 +104,7 @@ function renderHome() {
   }
 
   /* --- Filter anwenden --- */
-  const aktiv = homeMode !== 'alle' || !!homeTag;
+  const aktiv = homeDringend || homeNeuste || !!homeTag;
   let lists = allLists, notes = allNotes;
 
   if (homeTag) {
@@ -110,20 +112,24 @@ function renderHome() {
     notes = notes.filter((n) => (n.tags || []).includes(homeTag));
   }
 
-  if (homeMode === 'dringend') {
-    // Nur Listen mit offenen rot/gelb gefärbten Punkten – rot zuerst
-    lists = lists
-      .filter((l) => urgentItems(l.id).length)
-      .sort((a, b) => {
-        const redA = urgentItems(a.id).filter((i) => i.color === 'red').length;
-        const redB = urgentItems(b.id).filter((i) => i.color === 'red').length;
-        return redB - redA || b.updatedAt - a.updatedAt;
-      });
-    notes = [];                      // Notizen haben keine Punkte/Farben
-  } else if (homeMode === 'chrono') {
+  if (homeDringend) {
+    // Nur Listen mit offenen rot/gelb gefärbten Punkten; Notizen haben keine Punkte/Farben
+    lists = lists.filter((l) => urgentItems(l.id).length);
+    notes = [];
+  }
+
+  // Reihenfolge: „Neuste" schlägt die Dringlichkeits-Ordnung, sonst Standard
+  if (homeNeuste) {
     lists = [...lists].sort((a, b) => b.createdAt - a.createdAt);
     notes = [...notes].sort((a, b) => b.createdAt - a.createdAt);
-  } else if (!homeTag) {
+  } else if (homeDringend) {
+    // Rot (dringend) zuerst, danach zuletzt geändert
+    lists = [...lists].sort((a, b) => {
+      const redA = urgentItems(a.id).filter((i) => i.color === 'red').length;
+      const redB = urgentItems(b.id).filter((i) => i.color === 'red').length;
+      return redB - redA || b.updatedAt - a.updatedAt;
+    });
+  } else {
     lists = [...lists].sort((a, b) => b.updatedAt - a.updatedAt);
     notes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
   }
@@ -162,7 +168,7 @@ function renderHome() {
   } else {
     /* Gefiltert: flach nach Art – die Reihenfolge kommt aus dem Filter */
     if (lists.length) {
-      html += `<div class="section-head"><h2>${homeMode === 'dringend' ? 'Dringende Listen' : 'To-Do-Listen'}</h2></div>`;
+      html += `<div class="section-head"><h2>${homeDringend ? 'Dringende Listen' : 'To-Do-Listen'}</h2></div>`;
       html += lists.map((r) => swipeCard(r)).join('');
     }
     if (notes.length) {
@@ -177,15 +183,14 @@ function renderHome() {
   bindHomeFilter(v);
 }
 
-/** Filterleiste: Modi (Alle/Dringend/Chrono) + Tag-Chips mit Farbpunkt. */
+/** Filterleiste: Kipptaster Dringend/Neuste + Tag-Chips mit Farbpunkt. */
 function homeFilterBar(tagUse) {
   const chip = (kind, val, label, on, dot = '') =>
     `<button class="f-chip${on ? ' on' : ''}" data-f="${kind}" data-v="${esc(val)}">${dot}${label}</button>`;
 
   let html = '<div class="filter-bar">';
-  html += chip('mode', 'alle', 'Alle', homeMode === 'alle');
-  html += chip('mode', 'dringend', 'Dringend', homeMode === 'dringend');
-  html += chip('mode', 'chrono', 'Chrono', homeMode === 'chrono');
+  html += chip('mode', 'dringend', 'Dringend', homeDringend);
+  html += chip('mode', 'neuste', 'Neuste', homeNeuste);
   if (tagUse.size) html += '<span class="fb-sep"></span>';
   for (const [t, rec] of tagUse) {
     const c = rec.tagColors?.[t];
@@ -200,8 +205,11 @@ function bindHomeFilter(v) {
   v.querySelectorAll('.f-chip').forEach((b) => b.addEventListener('click', () => {
     const kind = b.dataset.f;
     const val = b.dataset.v;
-    if (kind === 'mode') homeMode = val;
-    else homeTag = homeTag === val ? null : val;    // gleicher Tag nochmal = aus
+    if (kind === 'mode') {
+      // Kipptaster: drücken = an, nochmal drücken = aus
+      if (val === 'dringend') homeDringend = !homeDringend;
+      else homeNeuste = !homeNeuste;
+    } else homeTag = homeTag === val ? null : val;    // gleicher Tag nochmal = aus
     haptic(6);
     renderHome();
   }));
@@ -488,7 +496,7 @@ function handleAction(act, id, el, e) {
       return;
     }
     case 'goto-settings': navigate('#/einstellungen'); return;
-    case 'filter-reset': homeMode = 'alle'; homeTag = null; renderHome(); return;
+    case 'filter-reset': homeDringend = false; homeNeuste = false; homeTag = null; renderHome(); return;
 
     /* --- Direktaktionen auf der Startseite / in der Punktzeile --- */
     case 'pin-card': {
