@@ -430,6 +430,38 @@ a { color: var(--accent); text-decoration: none; }
 
 /* ---------- Tags & Farben ---------- */
 
+/* Filterleiste der Startseite (Modi + Tag-Chips) */
+.filter-bar {
+  display: flex;
+  align-items: center;
+  gap: 7px;
+  overflow-x: auto;
+  padding: 0 1px 10px;
+  margin: -2px 0 0;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+.filter-bar::-webkit-scrollbar { display: none; }
+.f-chip {
+  flex: 0 0 auto;
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  border: none;
+  background: var(--fill);
+  color: var(--label);
+  font-family: inherit;
+  font-size: 13px;
+  font-weight: 500;
+  padding: 7px 13px;
+  border-radius: 999px;
+  cursor: pointer;
+}
+.f-chip:active { background: var(--fill-2); }
+.f-chip.on { background: var(--accent); color: #fff; }
+.fb-dot { width: 8px; height: 8px; border-radius: 50%; flex: 0 0 auto; }
+.fb-sep { flex: 0 0 auto; width: 1px; align-self: stretch; margin: 3px 1px; background: var(--separator); }
+
 .chips { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 9px; }
 .chip {
   font-size: 12.5px;

@@ -75,44 +75,136 @@ function updateTabs(name) {
    Start-Ansicht
    ============================================================ */
 
+/* Filter der Startseite (lebt so lange wie die Sitzung) */
+let homeMode = 'alle';        // 'alle' | 'dringend' | 'chrono'
+let homeTag = null;           // Tag-Name oder null
+
+/* Punkt-Farben, die als Dringlichkeit gelten (rot = dringend, gelb = mittel) */
+const URGENT_COLORS = ['red', 'yellow'];
+
+/** Offene, farbig dringliche Punkte einer Liste. */
+function urgentItems(listId) {
+  return db.itemsOfList(listId)
+    .filter((i) => i.state === 'active' && !i.done && URGENT_COLORS.includes(i.color));
+}
+
 function renderHome() {
-  const lists = db.recs('list').filter((l) => !l.archived);
-  const notes = db.recs('note').filter((n) => !n.archived);
+  const allLists = db.recs('list').filter((l) => !l.archived);
+  const allNotes = db.recs('note').filter((n) => !n.archived);
 
-  const pinnedLists = lists.filter((l) => l.pinned);
-  const pinnedNotes = notes.filter((n) => n.pinned);
-  const otherLists = lists.filter((l) => !l.pinned).sort((a, b) => b.updatedAt - a.updatedAt);
-  const otherNotes = notes.filter((n) => !n.pinned).sort((a, b) => b.updatedAt - a.updatedAt);
-
-  let html = `<div class="view-title">secondmind <span class="count">${lists.length + notes.length} Elemente</span></div>`;
-
-  if (!lists.length && !notes.length) {
-    html += emptyState('✨', 'Noch alles leer',
-      'Erstelle mit dem Plus-Button unten rechts deine erste Notiz oder To-Do-Liste.',
-      `<button class="btn" data-act="create" style="max-width:260px;margin:20px auto 0">Erste Notiz erstellen</button>`);
-    document.getElementById('view').innerHTML = html;
+  if (!allLists.length && !allNotes.length) {
+    document.getElementById('view').innerHTML =
+      `<div class="view-title">secondmind <span class="count">0 Elemente</span></div>` +
+      emptyState('✨', 'Noch alles leer',
+        'Erstelle mit dem Plus-Button unten rechts deine erste Notiz oder To-Do-Liste.',
+        `<button class="btn" data-act="create" style="max-width:260px;margin:20px auto 0">Erste Notiz erstellen</button>`);
     return;
   }
 
-  const pinned = [...pinnedLists, ...pinnedNotes];
-  if (pinned.length) {
-    html += `<div class="section-head"><h2>Angepinnt</h2></div>`;
-    html += pinned.map((r) => swipeCard(r)).join('');
+  /* --- Filter anwenden --- */
+  const aktiv = homeMode !== 'alle' || !!homeTag;
+  let lists = allLists, notes = allNotes;
+
+  if (homeTag) {
+    lists = lists.filter((l) => (l.tags || []).includes(homeTag));
+    notes = notes.filter((n) => (n.tags || []).includes(homeTag));
   }
 
-  if (otherLists.length) {
-    html += `<div class="section-head"><h2>To-Do-Listen</h2></div>`;
-    html += otherLists.map((r) => swipeCard(r)).join('');
+  if (homeMode === 'dringend') {
+    // Nur Listen mit offenen rot/gelb gefärbten Punkten – rot zuerst
+    lists = lists
+      .filter((l) => urgentItems(l.id).length)
+      .sort((a, b) => {
+        const redA = urgentItems(a.id).filter((i) => i.color === 'red').length;
+        const redB = urgentItems(b.id).filter((i) => i.color === 'red').length;
+        return redB - redA || b.updatedAt - a.updatedAt;
+      });
+    notes = [];                      // Notizen haben keine Punkte/Farben
+  } else if (homeMode === 'chrono') {
+    lists = [...lists].sort((a, b) => a.createdAt - b.createdAt);
+    notes = [...notes].sort((a, b) => a.createdAt - b.createdAt);
+  } else if (!homeTag) {
+    lists = [...lists].sort((a, b) => b.updatedAt - a.updatedAt);
+    notes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
   }
 
-  if (otherNotes.length) {
-    html += `<div class="section-head"><h2>Notizen</h2></div>`;
-    html += otherNotes.map((r) => swipeCard(r)).join('');
+  // Alle in Gebrauch befindlichen Tags (für die Filterleiste)
+  const tagUse = new Map();
+  for (const r of [...allLists, ...allNotes]) {
+    for (const t of (r.tags || [])) if (!tagUse.has(t)) tagUse.set(t, r);
+  }
+
+  let html = `<div class="view-title">secondmind <span class="count">${lists.length + notes.length} Elemente</span></div>`;
+  html += homeFilterBar(tagUse);
+
+  if (!lists.length && !notes.length) {
+    html += emptyState('🔍', 'Nichts unter diesem Filter',
+      'Keine Karte passt zur aktuellen Auswahl.',
+      `<button class="btn secondary" data-act="filter-reset" style="max-width:260px;margin:18px auto 0">Filter zurücksetzen</button>`);
+  } else if (!aktiv) {
+    /* Standard: Angepinnt zuerst, danach zuletzt geändert */
+    const pinned = [...lists.filter((l) => l.pinned), ...notes.filter((n) => n.pinned)];
+    const otherLists = lists.filter((l) => !l.pinned);
+    const otherNotes = notes.filter((n) => !n.pinned);
+
+    if (pinned.length) {
+      html += `<div class="section-head"><h2>Angepinnt</h2></div>`;
+      html += pinned.map((r) => swipeCard(r)).join('');
+    }
+    if (otherLists.length) {
+      html += `<div class="section-head"><h2>To-Do-Listen</h2></div>`;
+      html += otherLists.map((r) => swipeCard(r)).join('');
+    }
+    if (otherNotes.length) {
+      html += `<div class="section-head"><h2>Notizen</h2></div>`;
+      html += otherNotes.map((r) => swipeCard(r)).join('');
+    }
+  } else {
+    /* Gefiltert: flach nach Art – die Reihenfolge kommt aus dem Filter */
+    if (lists.length) {
+      html += `<div class="section-head"><h2>${homeMode === 'dringend' ? 'Dringende Listen' : 'To-Do-Listen'}</h2></div>`;
+      html += lists.map((r) => swipeCard(r)).join('');
+    }
+    if (notes.length) {
+      html += `<div class="section-head"><h2>Notizen</h2></div>`;
+      html += notes.map((r) => swipeCard(r)).join('');
+    }
   }
 
   const v = document.getElementById('view');
   v.innerHTML = html;
   bindSwipes(v);
+  bindHomeFilter(v);
+}
+
+/** Filterleiste: Modi (Alle/Dringend/Chrono) + Tag-Chips mit Farbpunkt. */
+function homeFilterBar(tagUse) {
+  const chip = (kind, val, label, on, dot = '') =>
+    `<button class="f-chip${on ? ' on' : ''}" data-f="${kind}" data-v="${esc(val)}">${dot}${label}</button>`;
+
+  let html = '<div class="filter-bar">';
+  html += chip('mode', 'alle', 'Alle', homeMode === 'alle');
+  html += chip('mode', 'dringend', 'Dringend', homeMode === 'dringend');
+  html += chip('mode', 'chrono', 'Chrono', homeMode === 'chrono');
+  if (tagUse.size) html += '<span class="fb-sep"></span>';
+  for (const [t, rec] of tagUse) {
+    const c = rec.tagColors?.[t];
+    const dot = c && c !== 'neutral' ? `<span class="fb-dot dot-${c}"></span>` : '';
+    html += chip('tag', t, esc(t), homeTag === t, dot);
+  }
+  html += '</div>';
+  return html;
+}
+
+function bindHomeFilter(v) {
+  v.querySelectorAll('.f-chip').forEach((b) => b.addEventListener('click', () => {
+    const kind = b.dataset.f;
+    const val = b.dataset.v;
+    if (kind === 'mode') homeMode = val;
+    else homeTag = homeTag === val ? null : val;    // gleicher Tag nochmal = aus
+    haptic(6);
+    renderHome();
+  }));
 }
 
 function swipeCard(r) {
@@ -396,6 +488,7 @@ function handleAction(act, id, el, e) {
       return;
     }
     case 'goto-settings': navigate('#/einstellungen'); return;
+    case 'filter-reset': homeMode = 'alle'; homeTag = null; renderHome(); return;
 
     /* --- Direktaktionen auf der Startseite / in der Punktzeile --- */
     case 'pin-card': {
