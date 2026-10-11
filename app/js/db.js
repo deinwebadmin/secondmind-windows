@@ -103,6 +103,13 @@ export async function loadAll() {
   const srec = state.records.get(SETTINGS_ID);
   if (srec?.data && (srec.updatedAt || 0) > (map.get('settingsAt') || 0)) {
     applySettingsRecord(srec);
+  } else if (!srec) {
+    // Upgrade-Pfad: bereits angepasste Einstellungen aus früheren Versionen
+    // einmalig ins Drive heben. updatedAt = 0, damit ein vorhandener
+    // Remote-Datensatz beim ersten Pull immer gewinnt (kein Überschreiben).
+    // Frische Installationen (nur Defaults) legen hier bewusst nichts an.
+    const customized = Object.keys(DEFAULT_SETTINGS).some((k) => state.settings[k] !== DEFAULT_SETTINGS[k]);
+    if (customized) putSettingsRecord(0);
   }
 
   state.ready = true;
@@ -288,6 +295,7 @@ export function delBlob(id) {
 /** Datensätze aus Drive einspielen – LWW-Merge nach updatedAt. */
 export function mergeRecords(incoming) {
   let changed = false;
+  const hadSettings = state.records.has(SETTINGS_ID);
   const settingsBefore = state.records.get(SETTINGS_ID)?.updatedAt || 0;
   for (const r of incoming) {
     if (!r || !r.id || !r.kind) continue;
@@ -307,9 +315,10 @@ export function mergeRecords(incoming) {
     const all = [...state.records.values()];
     tx('records', 'readwrite', (s) => { for (const r of all) s.put(r); })
       .catch((e) => console.error('merge', e));
-    // Einstellungen aus dem Drive übernehmen (neueres Gerät gewinnt)
+    // Einstellungen aus dem Drive übernehmen (neueres Gerät gewinnt;
+    // beim Einspielen in eine frische Datenbank immer)
     const srec = state.records.get(SETTINGS_ID);
-    if (srec && (srec.updatedAt || 0) > settingsBefore) applySettingsRecord(srec);
+    if (srec && (!hadSettings || (srec.updatedAt || 0) > settingsBefore)) applySettingsRecord(srec);
     notifyChange();
   }
   return changed;
