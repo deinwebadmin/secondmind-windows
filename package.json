@@ -1,7 +1,7 @@
 {
   "name": "secondmind-windows",
   "productName": "secondmind",
-  "version": "1.0.9",
+  "version": "1.0.10",
   "description": "secondmind – Notizen und To-Dos mit Google-Drive-Synchronisation (Windows)",
   "main": "electron/main.js",
   "author": "deinwebadmin",

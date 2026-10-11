@@ -702,21 +702,27 @@ const dayLabel = (dateStr) => {
   return `${WEEKDAYS_SHORT[(d.getDay() + 6) % 7]}, ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.${d.getFullYear()}`;
 };
 
-/** Termin-Sheet: Datum, Uhrzeit, Dauer – für Haupt- und Unterpunkte. */
-export function openPlanSheet(itemId) {
+/** Termin-Sheet: Datum, Uhrzeit, Dauer – für Haupt- und Unterpunkte.
+    `slot` ({ date, time }) füllt Datum/Urzeit vor, wenn der Punkt noch
+    keinen Termin hat (Klick auf ein leeres Kalender-Fenster). */
+export function openPlanSheet(itemId, slot = null) {
   const item = db.byId(itemId);
   if (!item || item.kind !== 'item') return;
 
   const plan = item.plan?.date ? item.plan : null;
   const now = new Date();
   const q = Math.min(45, Math.ceil(now.getMinutes() / 15) * 15);   // nächste Viertelstunde
-  const def = plan
-    ? { ...plan, dur: Number(plan.dur) || 60 }
-    : {
-        date: isoDate(now),
-        time: `${String((now.getHours() + (q === 0 ? 1 : 0)) % 24).padStart(2, '0')}:${String(q).padStart(2, '0')}`,
-        dur: 60,
-      };
+  // Getippter Kalender-Slot schlägt alles (auch vorhandene Termine) –
+  // der Punkt landet genau dort, wo getippt wurde
+  const def = slot
+    ? { date: slot.date, time: slot.time, dur: Number(plan?.dur) || 60 }
+    : plan
+      ? { ...plan, dur: Number(plan.dur) || 60 }
+      : {
+          date: isoDate(now),
+          time: `${String((now.getHours() + (q === 0 ? 1 : 0)) % 24).padStart(2, '0')}:${String(q).padStart(2, '0')}`,
+          dur: 60,
+        };
 
   openSheet({
     title: plan ? 'Termin verschieben' : 'In Kalender einplanen',
@@ -784,8 +790,10 @@ export function openPlanSheet(itemId) {
   });
 }
 
-/** Aus der Kalender-Ansicht: passenden Punkt wählen und einplanen. */
-export function openPlanChooser() {
+/** Aus der Kalender-Ansicht: passenden Punkt wählen und einplanen.
+    Kommt der Aufruf von einem leeren Zeitfenster (slot), werden Datum und
+    Uhrzeit dort vorbelegt. */
+export function openPlanChooser(slot = null) {
   const items = db.recs('item')
     .filter((i) => i.state === 'active' && !i.done && (i.text || '').trim())
     .slice(0, 80);
@@ -795,6 +803,7 @@ export function openPlanChooser() {
     headLeft: '<span style="width:60px"></span>',
     headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
     body: `
+      ${slot ? `<div class="r-note" style="margin:0 2px 12px">📅 ${esc(dayLabel(slot.date))} · ${esc(slot.time)} Uhr</div>` : ''}
       <input class="text-in" id="pq" placeholder="Punkt suchen …" style="margin-bottom:12px">
       <div class="settings-group" data-list></div>`,
     onMount(sheet, handle) {
@@ -818,7 +827,7 @@ export function openPlanChooser() {
           b.onclick = () => {
             const id = b.dataset.pick;
             handle.close();
-            setTimeout(() => openPlanSheet(id), 260);
+            setTimeout(() => openPlanSheet(id, slot), 260);
           };
         });
       };

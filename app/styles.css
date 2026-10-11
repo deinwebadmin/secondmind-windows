@@ -681,6 +681,14 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 }
 .cal-today:active { background: var(--fill-2); }
 
+/* Hinweis unter dem Raster (hinzufügen passiert per Tipp ins Fenster) */
+.cal-hint {
+  margin-top: 10px;
+  text-align: center;
+  font-size: 13px;
+  color: var(--label-3);
+}
+
 .cal-scroll {
   overflow-x: auto;
   -webkit-overflow-scrolling: touch;

@@ -448,7 +448,7 @@ export function renderCalendar() {
         ${cols}
       </div>
     </div>
-    <button class="add-item" data-cal="new" style="margin-top:10px"><span class="plus">＋</span> To-Do einplanen</button>`;
+    <div class="cal-hint">Tipp auf eine leere Zeit, um ein To-Do einzuplanen.</div>`;
 
   bindCalendar();
 }
@@ -497,8 +497,31 @@ function bindCalendar() {
       if (a === 'prev') { calMonday = addDays(ensureMonday(), -7); haptic(6); renderCalendar(); }
       else if (a === 'next') { calMonday = addDays(ensureMonday(), 7); haptic(6); renderCalendar(); }
       else if (a === 'today') { calMonday = mondayOfWeek(); haptic(6); renderCalendar(); }
-      else if (a === 'new') S.openPlanChooser();
       else if (a === 'plan') S.openPlanSheet(b.dataset.id);
+    });
+  });
+
+  // Leere Zeitfenster antippen: öffnet den Punkte-Wähler mit Datum und
+  // Uhrzeit der getippten Fläche (statt Button unter dem Raster)
+  let downX = 0, downY = 0, downCol = null;
+  v.querySelectorAll('.cal-col').forEach((col) => {
+    col.addEventListener('pointerdown', (e) => {
+      downCol = col; downX = e.clientX; downY = e.clientY;
+    });
+    col.addEventListener('pointercancel', () => { downCol = null; });
+    col.addEventListener('pointerup', (e) => {
+      const selber = downCol === col;
+      downCol = null;
+      if (!selber) return;
+      // Viel bewegt = Scrollen/Wischen, kein Tipp
+      if (Math.abs(e.clientX - downX) > 8 || Math.abs(e.clientY - downY) > 8) return;
+      if (e.target.closest('.cal-entry')) return;   // Einträge haben ihr eigenes Sheet
+      const r = col.getBoundingClientRect();
+      let min = Math.round(((e.clientY - r.top) / HOUR_H * 60) / 15) * 15;   // Viertelstunde
+      min = Math.max(0, Math.min(23 * 60 + 45, min));
+      const time = `${String(Math.floor(min / 60)).padStart(2, '0')}:${String(min % 60).padStart(2, '0')}`;
+      haptic(6);
+      S.openPlanChooser({ date: col.dataset.date, time });
     });
   });
 
