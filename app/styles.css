@@ -205,7 +205,10 @@ a { color: var(--accent); text-decoration: none; }
 .sync-dot .dot[data-state="syncing"] { background: var(--orange); animation: pulse 1.1s ease-in-out infinite; }
 .sync-dot .dot[data-state="offline"] { background: var(--label-3); }
 .sync-dot .dot[data-state="error"]   { background: var(--red); }
-.sync-dot .dot[data-state="waiting"] { background: var(--purple); }
+/* Kein Punkt, solange es nichts zu melden gibt (Start) oder Drive nicht
+   verbunden ist – Tippen öffnet trotzdem die Einstellungen */
+.sync-dot .dot[data-state="waiting"] { background: transparent; }
+.sync-dot .dot[data-state="idle"]    { background: transparent; }
 @keyframes pulse { 0%, 100% { opacity: 1; transform: scale(1); } 50% { opacity: .45; transform: scale(.82); } }
 
 #view {
