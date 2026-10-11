@@ -693,9 +693,43 @@ export function openLinkSheet(recordId) {
 
 /* ---------------- Kalender: Punkte einplanen ---------------- */
 
-export const PLAN_DURATIONS = [15, 30, 45, 60, 120, 240];
+export const PLAN_DURATIONS = [15, 30, 45, 60, 90, 120, 180, 240];
 
-const durLabel = (d) => (d < 60 ? `${d} Min` : `${d / 60} Std`);
+const durLabel = (d) => (d < 60 ? `${d} Min` : `${String(d / 60).replace('.', ',')} Std`);
+
+const WHEEL_ROW = 40;                     // Pixel pro Wahlrad-Zeile
+
+/** iOS-artiges Wahlrad für Dauern: scrollen oder auf einen Wert tippen. */
+function mountWheel(box, values, idx, onChange) {
+  box.className = 'wheel';
+  box.innerHTML = `
+    <div class="wheel-band"></div>
+    <div class="wheel-list">${values.map((v, i) =>
+      `<div class="wheel-opt" data-i="${i}">${durLabel(v)}</div>`).join('')}</div>`;
+  const list = box.querySelector('.wheel-list');
+  let cur = Math.max(0, Math.min(values.length - 1, idx));
+  const mark = () => list.querySelectorAll('.wheel-opt').forEach((o, i) => o.classList.toggle('sel', i === cur));
+  let t = 0;
+  list.addEventListener('scroll', () => {
+    const i = Math.max(0, Math.min(values.length - 1, Math.round(list.scrollTop / WHEEL_ROW)));
+    if (i !== cur) { cur = i; mark(); onChange(values[cur]); haptic(4); }
+    clearTimeout(t);
+    t = setTimeout(mark, 140);
+  });
+  list.scrollTop = cur * WHEEL_ROW;
+  mark();
+  list.querySelectorAll('.wheel-opt').forEach((o) => {
+    o.addEventListener('click', () => list.scrollTo({ top: Number(o.dataset.i) * WHEEL_ROW, behavior: 'smooth' }));
+  });
+}
+
+/** Index des nächstgelegenen Dauer-Werts im Wahlrad. */
+const nearestDurIndex = (v) => {
+  const i = PLAN_DURATIONS.indexOf(v);
+  if (i >= 0) return i;
+  return PLAN_DURATIONS.reduce((best, d, j) =>
+    Math.abs(d - v) < Math.abs(PLAN_DURATIONS[best] - v) ? j : best, 0);
+};
 
 const dayLabel = (dateStr) => {
   const d = parseISO(dateStr);
@@ -710,18 +744,19 @@ export function openPlanSheet(itemId, slot = null) {
   if (!item || item.kind !== 'item') return;
 
   const plan = item.plan?.date ? item.plan : null;
+  const vorDauer = Number(item.plan?.dur) || 60;   // auch nur zugewiesene Dauer (ohne Termin)
   const now = new Date();
   const q = Math.min(45, Math.ceil(now.getMinutes() / 15) * 15);   // nächste Viertelstunde
   // Getippter Kalender-Slot schlägt alles (auch vorhandene Termine) –
   // der Punkt landet genau dort, wo getippt wurde
   const def = slot
-    ? { date: slot.date, time: slot.time, dur: Number(plan?.dur) || 60 }
+    ? { date: slot.date, time: slot.time, dur: Number(plan?.dur) || vorDauer }
     : plan
-      ? { ...plan, dur: Number(plan.dur) || 60 }
+      ? { ...plan, dur: Number(plan.dur) || vorDauer }
       : {
           date: isoDate(now),
           time: `${String((now.getHours() + (q === 0 ? 1 : 0)) % 24).padStart(2, '0')}:${String(q).padStart(2, '0')}`,
-          dur: 60,
+          dur: vorDauer,
         };
 
   openSheet({
@@ -741,10 +776,7 @@ export function openPlanSheet(itemId, slot = null) {
         </div>
         <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
           <span class="r-label">Dauer</span>
-          <div class="seg" data-dur>
-            ${PLAN_DURATIONS.map((d) =>
-              `<button class="${def.dur === d ? 'on' : ''}" data-d="${d}">${durLabel(d)}</button>`).join('')}
-          </div>
+          <div data-wheel></div>
         </div>
       </div>
       <div class="r-note" data-prev style="padding:0 2px 14px"></div>
@@ -759,7 +791,6 @@ export function openPlanSheet(itemId, slot = null) {
       let dur = def.dur;
 
       const upd = () => {
-        sheet.querySelectorAll('[data-d]').forEach((b) => b.classList.toggle('on', Number(b.dataset.d) === dur));
         if (!dateEl.value) { prev.textContent = 'Bitte ein Datum wählen.'; return; }
         const t = timeEl.value || '00:00';
         prev.textContent = `📅 ${dayLabel(dateEl.value)} · ${t} – ${addMinutesToTime(t, dur)} Uhr · ${durLabel(dur)}`;
@@ -767,9 +798,8 @@ export function openPlanSheet(itemId, slot = null) {
 
       dateEl.oninput = upd;
       timeEl.oninput = upd;
-      sheet.querySelectorAll('[data-d]').forEach((b) => {
-        b.onclick = () => { dur = Number(b.dataset.d); upd(); haptic(6); };
-      });
+      mountWheel(sheet.querySelector('[data-wheel]'), PLAN_DURATIONS,
+        nearestDurIndex(def.dur), (v) => { dur = v; upd(); });
 
       sheet.querySelector('[data-save]').onclick = () => {
         if (!dateEl.value) { toast('Bitte ein Datum wählen', { type: 'error' }); return; }
@@ -786,6 +816,58 @@ export function openPlanSheet(itemId, slot = null) {
       });
 
       upd();
+    },
+  });
+}
+
+/** Dauer-Sheet (Zeilen-Button): per Wahlrad eine Dauer zuweisen – auch ohne
+    Termin. Solche Punkte erscheinen im Seitenbereich des Kalenders und können
+    von dort direkt ins Raster gezogen werden. */
+export function openDurSheet(itemId) {
+  const item = db.byId(itemId);
+  if (!item || item.kind !== 'item') return;
+
+  const geplant = !!item.plan?.date;
+  const cur = Number(item.plan?.dur) || 60;
+
+  openSheet({
+    title: 'Dauer zuweisen',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
+    body: `
+      <div class="r-note" style="margin:0 2px 12px">⏱ ${esc(item.text || 'Ohne Text')}</div>
+      <div class="settings-group">
+        <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
+          <span class="r-label">Dauer</span>
+          <div data-wheel></div>
+        </div>
+      </div>
+      ${geplant ? '' : '<div class="r-note" style="padding:12px 2px 0">Der Punkt erscheint danach links oder rechts im Kalender und kann direkt ins Raster gezogen werden.</div>'}
+      <button class="btn" data-save>Fertig</button>
+      ${geplant ? '' : '<button class="btn secondary" data-plan style="margin-top:10px">Direkt einplanen</button>'}
+      ${item.plan?.dur ? '<button class="btn secondary" data-clear style="margin-top:10px">Ohne Dauer</button>' : ''}`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+      let dur = cur;
+      mountWheel(sheet.querySelector('[data-wheel]'), PLAN_DURATIONS, nearestDurIndex(cur), (v) => { dur = v; });
+
+      sheet.querySelector('[data-save]').onclick = () => {
+        const plan = item.plan?.date ? { ...item.plan, dur } : { dur };
+        db.update(itemId, { plan });
+        haptic(10);
+        toast('Dauer gespeichert');
+        handle.close();
+      };
+      sheet.querySelector('[data-clear]')?.addEventListener('click', () => {
+        db.update(itemId, { plan: item.plan?.date ? { date: item.plan.date, time: item.plan.time } : null });
+        haptic(8);
+        toast('Dauer entfernt');
+        handle.close();
+      });
+      sheet.querySelector('[data-plan]')?.addEventListener('click', () => {
+        handle.close();
+        setTimeout(() => openPlanSheet(itemId), 260);
+      });
     },
   });
 }

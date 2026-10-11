@@ -410,6 +410,17 @@ export function renderCalendar() {
     planned.get(it.plan.date).push(it);
   }
 
+  // Punkte mit zugewiesener Dauer, aber noch ohne Termin – Seitenbereich
+  const tray = [];
+  for (const it of db.state.records.values()) {
+    if (it.kind !== 'item' || it.deleted || it.state !== 'active' || it.done) continue;
+    if (!it.plan?.dur || it.plan.date) continue;
+    const list = db.byId(it.listId);
+    if (list && (list.deleted || list.archived)) continue;
+    tray.push(it);
+  }
+  tray.sort((a, b) => (b.createdAt || 0) - (a.createdAt || 0));   // neueste zuerst
+
   // Kopfzeile (7 Tagesspalten) und Rasterzellen parallel aufbauen
   let heads = '', cols = '';
   for (let i = 0; i < 7; i++) {
@@ -432,6 +443,16 @@ export function renderCalendar() {
   let axis = '';
   for (let h = 0; h < 24; h++) axis += `<div class="cal-hour">${String(h).padStart(2, '0')}:00</div>`;
 
+  const grid = `
+    <div class="cal-scroll" id="calScroll">
+      <div class="cal-grid">
+        <div class="cal-axis-head"></div>
+        ${heads}
+        <div class="cal-axis">${axis}</div>
+        ${cols}
+      </div>
+    </div>`;
+
   v.innerHTML = `
     <div class="view-title">Kalender <span class="count">KW ${isoWeek(mon)}</span></div>
     <div class="cal-nav">
@@ -440,17 +461,112 @@ export function renderCalendar() {
       <button class="cal-arrow" data-cal="next" aria-label="Nächste Woche">›</button>
       <button class="cal-today" data-cal="today">Heute</button>
     </div>
-    <div class="cal-scroll" id="calScroll">
-      <div class="cal-grid">
-        <div class="cal-axis-head"></div>
-        ${heads}
-        <div class="cal-axis">${axis}</div>
-        ${cols}
-      </div>
-    </div>
-    <div class="cal-hint">Tipp auf eine leere Zeit, um ein To-Do einzuplanen.</div>`;
+    ${tray.length ? `<div class="cal-body">${traySide(tray, 'left')}${grid}${traySide(tray, 'right')}</div>` : grid}
+    <div class="cal-hint">${tray.length
+      ? 'Tipp auf eine leere Zeit – oder ziehe Punkte mit Dauer aus dem Seitenbereich ins Raster.'
+      : 'Tipp auf eine leere Zeit, um ein To-Do einzuplanen.'}</div>`;
 
   bindCalendar();
+  bindTrayDrag(v);
+}
+
+/** Eine Seite des Kalender-Sidebars: Hälfte der Dauer-Punkte als Chips. */
+function traySide(all, side) {
+  const items = all.filter((_, i) => (side === 'left' ? i % 2 === 0 : i % 2 === 1));
+  if (!items.length) return '';
+  return `
+    <div class="cal-tray ${side}" aria-label="Punkte mit Dauer">
+      ${items.map((it) => {
+        const d = Number(it.plan.dur) || 60;
+        const c = it.color && it.color !== 'neutral' ? ` c-${it.color}` : '';
+        const label = d < 60 ? `${d} Min` : `${String(d / 60).replace('.', ',')} Std`;
+        return `<button class="tray-item${c}" data-id="${it.id}" data-dur="${d}" title="${esc(it.text || 'Ohne Text')}">
+          <span class="ti-dur">${label}</span>
+          <span class="ti-text">${esc(it.text || 'Ohne Text')}</span>
+        </button>`;
+      }).join('')}
+    </div>`;
+}
+
+/** Seitenbereich: Dauer-Punkte per Ziehen ins Raster legen – Tippen öffnet
+    das Termin-Sheet. */
+function bindTrayDrag(v) {
+  v.querySelectorAll('.tray-item').forEach((chip) => {
+    chip.addEventListener('pointerdown', (e) => {
+      e.preventDefault();                     // kein Markieren, kein Scrollen
+      const id = chip.dataset.id;
+      const dur = Number(chip.dataset.dur) || 60;
+      const sx = e.clientX, sy = e.clientY;
+      let moved = false, ghost = null, prev = null, col = null, hiCol = null, min = 0;
+
+      const cleanup = () => {
+        window.removeEventListener('pointermove', move);
+        window.removeEventListener('pointerup', up);
+        window.removeEventListener('pointercancel', cancel);
+        ghost?.remove(); prev?.remove();
+        chip.classList.remove('dragging');
+        hiCol?.classList.remove('drop-target');
+      };
+
+      const move = (ev) => {
+        if (!moved) {
+          if (Math.abs(ev.clientX - sx) < 8 && Math.abs(ev.clientY - sy) < 8) return;
+          moved = true;
+          ghost = chip.cloneNode(true);
+          ghost.classList.add('tray-ghost');
+          ghost.style.width = `${chip.offsetWidth}px`;
+          document.body.appendChild(ghost);
+          chip.classList.add('dragging');
+        }
+        ghost.style.left = `${ev.clientX}px`;
+        ghost.style.top = `${ev.clientY}px`;
+
+        const el = document.elementFromPoint(ev.clientX, ev.clientY);
+        const nc = el ? el.closest('.cal-col') : null;
+        if (nc !== col) {
+          prev?.remove(); prev = null;
+          hiCol?.classList.remove('drop-target');
+          col = nc;
+          hiCol = nc;
+          if (col) {
+            col.classList.add('drop-target');
+            prev = document.createElement('div');
+            prev.className = 'cal-entry preview';
+            prev.innerHTML = `<span class="ce-time"></span><span class="ce-title">${esc(chip.querySelector('.ti-text')?.textContent || '')}</span>`;
+            col.appendChild(prev);
+          }
+        }
+        if (col && prev) {
+          const r = col.getBoundingClientRect();
+          const m = Math.round(((ev.clientY - r.top) / HOUR_H * 60) / 15) * 15;
+          min = Math.max(0, Math.min(1440 - dur, m));
+          prev.style.top = `${Math.round(min / 60 * HOUR_H)}px`;
+          prev.style.height = `${Math.max(20, Math.round(dur / 60 * HOUR_H) - 2)}px`;
+          const t = prev.querySelector('.ce-time');
+          if (t) t.textContent = fmtHM(min);
+        }
+      };
+
+      const up = () => {
+        const gezogen = moved, ziel = col, zeit = min;
+        cleanup();
+        if (gezogen && ziel) {
+          db.update(id, { plan: { date: ziel.dataset.date, time: fmtHM(zeit), dur } });
+          haptic(14);
+          S.toast('In den Kalender gezogen');
+          renderCalendar();
+        } else if (!gezogen) {
+          S.openPlanSheet(id);                // Tippen: Termin-Sheet (Dauer vorausgewählt)
+        }
+      };
+
+      const cancel = () => cleanup();
+
+      window.addEventListener('pointermove', move);
+      window.addEventListener('pointerup', up);
+      window.addEventListener('pointercancel', cancel);
+    });
+  });
 }
 
 /** Einträge eines Tages als positionierte Blöcke – zeitgleiche Termine

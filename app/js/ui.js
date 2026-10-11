@@ -515,10 +515,14 @@ function handleAction(act, id, el, e) {
       S.openItemColorSheet(id);
       return;
 
-    case 'item-plan':
+    case 'item-plan': {
       e.stopPropagation();
-      S.openPlanSheet(id);
+      // Ohne Termin: Dauer-Wahlrad; mit Termin: komplettes Termin-Sheet
+      const planRec = db.byId(id);
+      if (planRec?.plan?.date) S.openPlanSheet(id);
+      else S.openDurSheet(id);
       return;
+    }
 
     case 'item-archive':
       e.stopPropagation();

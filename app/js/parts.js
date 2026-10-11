@@ -149,6 +149,9 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
 
   const planTag = item.plan?.date && !history && db.getSetting('calendarEnabled') ? `
     <button class="plan-tag" data-act="item-plan" data-id="${item.id}" title="Termin ändern">📅 ${esc(item.plan.time || '')}${item.plan.dur ? ` · ${item.plan.dur} Min` : ''}</button>` : '';
+  // Nur zugewiesene Dauer (noch kein Termin): sichtbarer Chip, öffnet das Wahlrad
+  const durTag = !item.plan?.date && item.plan?.dur && !history && db.getSetting('calendarEnabled') ? `
+    <button class="plan-tag dur" data-act="item-plan" data-id="${item.id}" title="Dauer ändern">⏱ ${item.plan.dur < 60 ? `${item.plan.dur} Min` : `${String(item.plan.dur / 60).replace('.', ',')} Std`}</button>` : '';
 
   // Griff zum Verschieben am linken Rand (nur außerhalb von Archiv/Memory)
   const handle = history ? '' : `<button class="drag-handle" type="button" aria-label="Verschieben" title="Verschieben (halten und ziehen)">${ICON.grip}</button>`;
@@ -160,7 +163,7 @@ export function itemRowHtml(item, { sub = false, history = false, list = null } 
       <div class="item-body">
         <div class="item-text" contenteditable="true" spellcheck="false" data-edit="${item.id}">${esc(item.text)}</div>
         ${noteTitle ? `<button class="linked-note" data-act="open-linked-note" data-id="${note.id}" title="Verknüpfte Notiz öffnen">📝 ${esc(noteTitle)}</button>` : ''}
-        ${planTag}
+        ${planTag}${durTag}
       </div>
       <div class="item-tail">${tail.join('')}</div>
     </div>`;
