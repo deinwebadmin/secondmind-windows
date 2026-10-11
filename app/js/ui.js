@@ -121,8 +121,8 @@ function renderHome() {
       });
     notes = [];                      // Notizen haben keine Punkte/Farben
   } else if (homeMode === 'chrono') {
-    lists = [...lists].sort((a, b) => a.createdAt - b.createdAt);
-    notes = [...notes].sort((a, b) => a.createdAt - b.createdAt);
+    lists = [...lists].sort((a, b) => b.createdAt - a.createdAt);
+    notes = [...notes].sort((a, b) => b.createdAt - a.createdAt);
   } else if (!homeTag) {
     lists = [...lists].sort((a, b) => b.updatedAt - a.updatedAt);
     notes = [...notes].sort((a, b) => b.updatedAt - a.updatedAt);
