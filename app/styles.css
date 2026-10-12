@@ -255,6 +255,7 @@ a { color: var(--accent); text-decoration: none; }
 }
 #calBtn.active { color: var(--accent); background: rgba(0, 122, 255, .12); }
 #calBtn[hidden] { display: none; }
+#geminiBtn[hidden] { display: none; }
 
 /* ---------- Titel & Abschnitte ---------- */
 

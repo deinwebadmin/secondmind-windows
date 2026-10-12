@@ -3,7 +3,7 @@
 
 import * as db from './db.js';
 import * as S from './sheets.js';
-import { isGeminiReady, isExposed } from './gemini.js';
+import { isExposed } from './gemini.js';
 import * as repeat from './repeat.js';
 import { esc, ICON, fmtRel, spring, rubberband, reducedMotion, haptic, fmtBytes, tagChip } from './util.js';
 import { navigate } from './router.js';
@@ -128,7 +128,7 @@ export function listCardHtml(list, { context = 'home' } = {}) {
     <button class="card-pin ${list.pinned ? 'on' : ''}" data-act="pin-card" data-id="${list.id}"
       aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
   // Gemini: Button neben dem Pin – nur im benutzerdefinierten Modus (Exponieren)
-  const geminiBtn = (list.archived || !isGeminiReady() || db.state.settings.geminiMode === 'full') ? '' : `
+  const geminiBtn = (list.archived || db.state.settings.geminiMode === 'full') ? '' : `
     <button class="card-gemini ${isExposed('list', list.id) ? 'on' : ''}" data-act="gemini-expose" data-kind="list" data-id="${list.id}"
       aria-label="Für Gemini ${isExposed('list', list.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}"
       title="Für Gemini ${isExposed('list', list.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}">${ICON.gemini}</button>`;
@@ -168,7 +168,7 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
     <button class="card-pin ${note.pinned ? 'on' : ''}" data-act="pin-card" data-id="${note.id}"
       aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
   // Gemini: Button neben dem Pin – nur im benutzerdefinierten Modus (Exponieren)
-  const geminiBtn = (note.archived || !isGeminiReady() || db.state.settings.geminiMode === 'full') ? '' : `
+  const geminiBtn = (note.archived || db.state.settings.geminiMode === 'full') ? '' : `
     <button class="card-gemini ${isExposed('note', note.id) ? 'on' : ''}" data-act="gemini-expose" data-kind="note" data-id="${note.id}"
       aria-label="Für Gemini ${isExposed('note', note.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}"
       title="Für Gemini ${isExposed('note', note.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}">${ICON.gemini}</button>`;
