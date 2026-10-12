@@ -299,17 +299,9 @@ function renderList(id) {
   let body = '';
 
   if (isRepeat) {
-    // Wiederkehrend-Liste: fällige, geplante und pausierte Regeln gruppiert
-    const enabled = parents.filter((p) => p.repeat?.enabled !== false);
-    const paused = parents.filter((p) => p.repeat?.enabled === false);
-    const dueNow = enabled.filter((p) => repeat.isDueToday(p));
-    const later = enabled.filter((p) => !repeat.isDueToday(p));
-    const grp = (label, arr) => (arr.length ? `
-      <div class="rep-group">
-        <div class="day-head">${label} (${arr.length})</div>
-        ${arr.map(repeatRowHtml).join('')}
-      </div>` : '');
-    body = grp('Fällig', dueNow) + grp('Nächste Termine', later) + grp('Pausiert', paused);
+    // Flache Liste in stabiler Reihenfolge: Der Schalter ändert nur den
+    // Zustand (on/off), die Position der Punkte bleibt immer stehen.
+    body = parents.map(repeatRowHtml).join('');
     if (!parents.length) {
       body = emptyState('♻️', 'Noch keine Wiederholungen',
         'Lege wiederkehrende Aufgaben an – täglich, wöchentlich oder monatlich. Sie erscheinen auch im Kalender.');

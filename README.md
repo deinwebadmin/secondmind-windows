@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.18.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.18/secondmind-Setup-1.0.18.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.18-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.18/secondmind-1.0.18-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.19.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.19/secondmind-Setup-1.0.19.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.19-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.19/secondmind-1.0.19-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,12 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.19
+- **Stabile Reihenfolge**: Punkte in der Wiederkehrend-Liste ändern beim Aktivieren/Deaktivieren nie ihre Position – nur on/off
+- **Alles über Buttons in der Zeile**: Farbwahl (🎨, Farbe wird in den Kalender übernommen), Intervall (♻️, öffnet nur noch Frequenz/Intervall), An/Aus-Schalter – kein Menü mehr beim Anklicken, Text direkt in der Zeile editierbar
+- **Wischen wie gewohnt**: nach rechts löschen (mit Rückfrage), nach links pausieren/aktivieren
+- **„Repetitiv" als neue Vorlage** beim Plus-Button – zusätzliche wiederkehrende Listen lassen sich jetzt direkt anlegen
 
 ### 1.0.18
 - **Neue Liste „Wiederkehrend“ (♻️)**: wird automatisch angelegt – dort lebst du To-Dos, die sich wiederholen

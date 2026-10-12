@@ -574,17 +574,20 @@ function bindTrayDrag(v) {
 /** Einträge eines Tages als positionierte Blöcke – zeitgleiche Termine
     verteilen sich auf Spuren nebeneinander. */
 /** Wiederkehrende Punkte (♻️) für einen Kalendertag – ganztägig am Spalten-
-    anfang, unabhängig von Uhrzeiten. */
+    anfang, unabhängig von Uhrzeiten. Die Farbe des Punktes wird übernommen. */
 function repeatEntriesHtml(date) {
   const items = repeat.repeatsOn(date);
   if (!items.length) return '';
-  return items.map((it, i) => `
-    <button class="cal-entry repeat" data-cal="repeat" data-id="${it.id}"
+  return items.map((it, i) => {
+    const c = it.color && it.color !== 'neutral' ? ` c-${it.color}` : '';
+    return `
+    <button class="cal-entry repeat${c}" data-cal="repeat" data-id="${it.id}"
       style="top:${4 + i * 22}px;height:20px;left:2px;right:2px;width:auto"
       title="Wiederkehrender Punkt – tippen zum Bearbeiten">
       <span class="ce-time">♻️</span>
       <span class="ce-title">${esc(it.text || 'Ohne Text')}</span>
-    </button>`).join('');
+    </button>`;
+  }).join('');
 }
 
 function calEntriesHtml(items) {

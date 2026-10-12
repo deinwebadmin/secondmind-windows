@@ -169,7 +169,7 @@ export function openCreateMenu() {
       </button>
       <button class="menu-btn" data-new="list">
         <span class="mi">✅</span>
-        <span class="mb"><span>To-Do-Liste</span><span class="ms">Woche, Standard oder Simpel</span></span>
+        <span class="mb"><span>To-Do-Liste</span><span class="ms">Woche, Standard, Simpel oder Repetitiv</span></span>
       </button>
     </div>`,
     onMount(sheet, handle) {
@@ -189,6 +189,7 @@ const TEMPLATES = [
   { key: 'woche', icon: '📅', label: 'Woche', sub: '7 Wochentage, Historie, Archiv & Memory' },
   { key: 'standard', icon: '🗒', label: 'Standard', sub: 'Titel, Punkte mit Unterpunkten, alles dabei' },
   { key: 'simple', icon: '⚡️', label: 'Simpel', sub: 'Nur Liste – abgehakte Punkte verschwinden' },
+  { key: 'repeat', icon: '♻️', label: 'Repetitiv', sub: 'Aufgaben, die sich täglich/wöchentlich/monatlich wiederholen' },
 ];
 
 export function openTemplatePicker() {
@@ -960,22 +961,21 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
   };
 
   openSheet({
-    title: it ? 'Wiederholung bearbeiten' : 'Wiederkehrender Punkt',
+    title: it ? 'Wiederholung' : 'Wiederkehrender Punkt',
     headLeft: '<span style="width:60px"></span>',
     headRight: '<button class="sh-btn" data-close>Schließen</button>',
     body: `
-      <div class="rep-sheet-label">Aufgabe</div>
+      ${it ? '' : `<div class="rep-sheet-label">Aufgabe</div>
       <input class="text-in" id="repText" placeholder="Was wiederholt sich? (z. B. „Müll rausbringen“)"
-        value="${esc(it?.text || '')}" autocomplete="off" spellcheck="false" maxlength="120">
-      <div class="rep-sheet-label">Wiederholung</div>
+        value="" autocomplete="off" spellcheck="false" maxlength="120">`}
+      <div class="rep-sheet-label">${it ? 'Intervall' : 'Wiederholung'}</div>
       <div class="seg" id="repFreq">
         <button data-val="daily" class="${draft.freq === 'daily' ? 'on' : ''}">Täglich</button>
         <button data-val="weekly" class="${draft.freq === 'weekly' ? 'on' : ''}">Wöchentlich</button>
         <button data-val="monthly" class="${draft.freq === 'monthly' ? 'on' : ''}">Monatlich</button>
       </div>
       <div id="repOptions"></div>
-      <button class="btn" id="repSave" style="margin-top:18px">${it ? 'Änderungen speichern' : 'Wiederholung anlegen'}</button>
-      ${it ? '<button class="btn danger" id="repDel" style="margin-top:8px">🗑 Wiederholung löschen</button>' : ''}
+      <button class="btn" id="repSave" style="margin-top:18px">${it ? 'Fertig' : 'Wiederholung anlegen'}</button>
     `,
     onMount(sheet, handle) {
       const opt = sheet.querySelector('#repOptions');
@@ -1043,7 +1043,7 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
       sheet.querySelector('[data-close]').onclick = () => handle.close();
 
       const save = () => {
-        const text = sheet.querySelector('#repText').value.trim();
+        const text = it ? (it.text || '').trim() : sheet.querySelector('#repText').value.trim();
         if (!text) { toast('Bitte zuerst einen Text eingeben.'); return; }
         const rep = {
           freq: draft.freq,
@@ -1055,24 +1055,17 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
           lastDone: it?.repeat?.lastDone || null,
         };
         handle.close();
-        if (it) db.update(it.id, { text, repeat: rep });
+        if (it) db.update(it.id, { repeat: rep });
         else db.create('item', { listId, text, repeat: rep });
         haptic(10);
-        toast(it ? 'Wiederholung aktualisiert' : 'Wiederholung angelegt');
+        toast(it ? 'Intervall aktualisiert' : 'Wiederholung angelegt');
       };
       sheet.querySelector('#repSave').onclick = save;
-      sheet.querySelector('#repText').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
-
-      const del = sheet.querySelector('#repDel');
-      if (del) del.onclick = () => {
-        if (!window.confirm('Wiederholung wirklich löschen?')) return;
-        handle.close();
-        db.update(it.id, { deleted: true });
-        haptic(12);
-        toast('Wiederholung gelöscht');
-      };
-
-      setTimeout(() => sheet.querySelector('#repText')?.focus(), 60);
+      if (!it) {
+        const input = sheet.querySelector('#repText');
+        input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+        setTimeout(() => input.focus(), 60);
+      }
     },
   });
 }

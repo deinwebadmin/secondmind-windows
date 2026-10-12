@@ -39,35 +39,53 @@ export const tplInfo = (t) => TPL[t] || TPL.standard;
 
 /* ---------------- Wiederkehrende Punkte ---------------- */
 
-/** Eine Zeile in der „Wiederkehrend“-Liste: Abhaken, Regel-Badge, Fälligkeit
-    und An/Aus-Schalter. */
+/** Eine Zeile in der „Wiederkehrend“-Liste: Abhaken, Intervall-Button, Farbe,
+    An/Aus-Schalter – alles über Buttons in der Zeile (kein Menü-Klick).
+    Wischen nach rechts löscht (wie überall), nach links pausiert/aktiviert. */
 export function repeatRowHtml(it) {
   const rep = it.repeat || {};
   const paused = rep.enabled === false;
   const checked = repeat.isDoneForCycle(it);
   const due = repeat.isDueToday(it);
   const nd = repeat.nextDueDate(it);
+  const color = it.color && it.color !== 'neutral' ? it.color : '';
 
-  const dueText = paused ? 'pausiert'
-    : due ? 'heute fällig'
-    : nd ? `wieder am ${repeat.dueLabel(nd)}`
-    : 'keine Termine mehr';
+  const freqText = paused ? 'pausiert'
+    : due ? `${repeat.freqLabel(rep)} · fällig`
+    : nd ? `${repeat.freqLabel(rep)} · ${repeat.dueLabel(nd)}`
+    : repeat.freqLabel(rep);
+
+  const cls = [
+    'item', 'rep-item',
+    checked ? 'done' : '',
+    paused ? 'rep-paused' : '',
+    color ? `item-c-${esc(color)}` : '',
+  ].filter(Boolean).join(' ');
 
   return `
-    <div class="rep-row${paused ? ' paused' : ''}" data-id="${it.id}">
-      <button class="rep-check${checked ? ' on' : ''}" data-act="repeat-check" data-id="${it.id}"
-        aria-label="${checked ? 'Als offen markieren' : 'Als erledigt markieren'}"
-        title="${checked ? 'Als offen markieren' : 'Als erledigt markieren'}">${ICON.check}</button>
-      <button class="rep-main" data-act="repeat-edit" data-id="${it.id}">
-        <span class="rep-text">${esc(it.text || 'Ohne Text')}</span>
-        <span class="rep-sub">
-          <span class="rep-badge">♻️ ${esc(repeat.freqLabel(rep))}</span>
-          <span class="rep-due${due && !paused ? ' f' : ''}">${esc(dueText)}</span>
-        </span>
-      </button>
-      <button class="switch${paused ? '' : ' on'}" data-act="repeat-toggle" data-id="${it.id}"
-        aria-label="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"
-        title="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"></button>
+    <div class="swipe row-swipe" data-swipe data-mode="repeat" data-id="${it.id}">
+      <div class="swipe-bg">
+        <div class="swipe-act left">${ICON.trash}<span>Löschen</span></div>
+        <div class="swipe-act right">${paused ? '' : ''}<span>${paused ? 'Aktivieren' : 'Pausieren'}</span></div>
+      </div>
+      <div class="swipe-content">
+        <div class="${cls}" data-id="${it.id}">
+          <button class="check${checked ? ' on' : ''}" data-act="repeat-check" data-id="${it.id}"
+            aria-label="Als erledigt markieren" title="Als erledigt markieren">${ICON.check}</button>
+          <div class="item-body">
+            <div class="item-text" contenteditable="true" spellcheck="false" data-edit="${it.id}">${esc(it.text || '')}</div>
+            <button class="plan-tag rep-freq${due && !paused ? ' f' : ''}${paused ? ' paused' : ''}"
+              data-act="repeat-edit" data-id="${it.id}" title="Wiederholung ändern">♻️ ${esc(freqText)}</button>
+          </div>
+          <div class="item-tail">
+            <button class="row-btn color${color ? ` on c-${color}` : ''}" data-act="item-color" data-id="${it.id}"
+              aria-label="Farbe wählen" title="Farbe">${ICON.palette}</button>
+            <button class="switch${paused ? '' : ' on'}" data-act="repeat-toggle" data-id="${it.id}"
+              aria-label="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"
+              title="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"></button>
+          </div>
+        </div>
+      </div>
     </div>`;
 }
 
@@ -594,6 +612,15 @@ function handleSwipeAction(id, dir, mode) {
     if (mode === 'restore' && dir === 'left') {   // Wiederherstellen (Archiv)
       S.restoreItem(id);                           // ganze Gruppe inkl. Unterpunkten
       return;
+    }
+    if (mode === 'repeat') {         // Wiederkehrende Punkte: Wischen nach
+      if (dir === 'left') {          // links pausiert/aktiviert statt Memory
+        const wasOn = rec.repeat?.enabled !== false;
+        repeat.setEnabled(rec, !wasOn);
+        haptic(10);
+        S.toast(wasOn ? 'Wiederholung pausiert' : 'Wiederholung aktiv');
+        return;
+      }
     }
     if (dir === 'left') {           // Memory (oder Archiv bei einfacher Liste)
       const list = db.byId(rec.listId);
