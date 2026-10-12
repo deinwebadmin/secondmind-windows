@@ -116,8 +116,17 @@ export function openUpdateSheet(res) {
           S.toast('Android verlangt die Erlaubnis „Apps aus unbekannten Quellen“ für secondmind – erlaube sie und tippe erneut auf „Jetzt aktualisieren“.', { type: 'error' });
         } else if (r?.error) {
           S.toast('Update fehlgeschlagen: ' + r.error, { type: 'error' });
+        } else if (r?.ok) {
+          if (r.fallback === 'browser') {
+            S.toast('Der Installer konnte nicht geöffnet werden – die APK wurde im Browser geöffnet. Lade sie herunter und tippe auf die Datei, um zu installieren.', { type: 'error' });
+          } else if (platform === 'android') {
+            S.toast('Installer geöffnet – tippe auf „Installieren“. Nach dem Update starte secondmind neu.');
+          } else if (r.mode === 'setup') {
+            S.toast('Update wird installiert – secondmind schließt sich und öffnet sich gleich mit der neuen Version neu.');
+          } else {
+            S.toast('Update wird eingespielt – secondmind startet gleich neu.');
+          }
         }
-        // Erfolg: Windows schließt die App und installiert, Android öffnet den Installer.
       };
     },
   });

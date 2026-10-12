@@ -160,10 +160,13 @@ ipcMain.on('sm:open-external', (_e, url) => {
 /* ---------------- In-App-Update ---------------- */
 
 /**
- * Update herunterladen und starten.
- * Installierte Variante: NSIS-Setup still ausführen (/S) – die App schließt
- * sich, das Setup ersetzt die Dateien. Nutzerdaten in %APPDATA% bleiben.
- * Portable Variante: neue EXE neben die alte legen und starten.
+ * Update herunterladen und starten – ohne sichtbares Konsolenfenster.
+ * Verzögerung und Start laufen über eine wscript-Datei (wscript.exe ist eine
+ * GUI-Anwendung, es blitzt nie eine CMD auf). Erkennung der installierten
+ * Variante sucht Uninstall*.exe (Name variiert je nach NSIS-Variante).
+ * Installiert: NSIS-Setup still (/S), nachdem die App hart beendet ist.
+ * Portable: Die neue EXE überschreibt die laufende Datei (Desktop-Verknüpfung
+ * bleibt gültig) und startet neu; scheitert das, startet sie daneben.
  */
 ipcMain.handle('sm:update-app', async (_e, target) => {
   try {
@@ -171,7 +174,10 @@ ipcMain.handle('sm:update-app', async (_e, target) => {
     if (!ver) return { error: 'keine Versionsangabe' };
 
     const exeDir = path.dirname(process.execPath);
-    const installed = fs.existsSync(path.join(exeDir, 'Uninstall secondmind.exe'));
+    let installed = false;
+    try {
+      installed = fs.readdirSync(exeDir).some((f) => /^uninstall.*\.exe$/i.test(f));
+    } catch { /* Ordner nicht lesbar -> portable annehmen */ }
     const url = installed ? target?.setupUrl : (target?.portableUrl || target?.setupUrl);
     if (!/^https:\/\/github\.com\//i.test(String(url || ''))) return { error: 'ungültige Download-URL' };
 
@@ -181,27 +187,41 @@ ipcMain.handle('sm:update-app', async (_e, target) => {
     const buf = Buffer.from(await res.arrayBuffer());
     if (buf.length < 1_000_000) return { error: 'Download unvollständig' };
 
+    const temp = app.getPath('temp');
+    const vbsPath = path.join(temp, 'secondmind-update.vbs');
+
     if (installed) {
-      // Still-Setup in den Temp kopieren, mit Verzögerung starten (die App
-      // ist bis dahin beendet), danach schließt secondmind sich selbst.
-      const file = path.join(app.getPath('temp'), `secondmind-setup-${ver}.exe`);
+      const file = path.join(temp, `secondmind-setup-${ver}.exe`);
       fs.writeFileSync(file, buf);
-      const cmd = `timeout /t 2 /nobreak >nul & start "" "${file}" /S`;
-      spawn('cmd.exe', ['/c', cmd], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
-      setTimeout(() => app.quit(), 500);
+      fs.writeFileSync(vbsPath, [
+        'WScript.Sleep 2500',
+        'CreateObject("WScript.Shell").Run """' + file + '"" /S", 1, False',
+      ].join('\r\n'), 'ascii');
+      spawn('wscript.exe', [vbsPath], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+      setTimeout(() => app.exit(0), 400);
       return { ok: true, mode: 'setup' };
     }
 
-    // Portable: neue Version starten (gleicher Ordner, sonst Temp)
-    let file = path.join(exeDir, `secondmind ${ver}.exe`);
-    try {
-      fs.writeFileSync(file, buf);
-    } catch {
-      file = path.join(app.getPath('temp'), `secondmind ${ver}.exe`);
-      fs.writeFileSync(file, buf);
-    }
-    spawn(file, [], { detached: true, stdio: 'ignore' }).unref();
-    setTimeout(() => app.quit(), 500);
+    // Portable: Download nach temp, dann nach dem Beenden überschreiben + Start
+    const file = path.join(temp, `secondmind-${ver}.exe`);
+    fs.writeFileSync(file, buf);
+    const self = process.execPath;
+    fs.writeFileSync(vbsPath, [
+      'WScript.Sleep 2500',
+      'On Error Resume Next',
+      'Set fso = CreateObject("Scripting.FileSystemObject")',
+      'src = "' + file + '"',
+      'dst = "' + self + '"',
+      'fso.CopyFile src, dst, True',
+      'If Err.Number <> 0 Then',
+      '  Err.Clear',
+      '  dst = fso.BuildPath(fso.GetParentFolderName(dst), fso.GetFileName(src))',
+      '  fso.CopyFile src, dst, True',
+      'End If',
+      'CreateObject("WScript.Shell").Run """" & dst & """", 1, False',
+    ].join('\r\n'), 'ascii');
+    spawn('wscript.exe', [vbsPath], { detached: true, stdio: 'ignore', windowsHide: true }).unref();
+    setTimeout(() => app.exit(0), 400);
     return { ok: true, mode: 'portable' };
   } catch (e) {
     return { error: e?.message || 'Update fehlgeschlagen' };

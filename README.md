@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.21.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.21/secondmind-Setup-1.0.21.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.21-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.21/secondmind-1.0.21-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.22.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.22/secondmind-Setup-1.0.22.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.22-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.22/secondmind-1.0.22-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,12 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.22
+- **In-App-Update funktioniert jetzt wirklich**: Windows lädt herunter, beendet die App sauber und installiert danach – **ohne kurzes CMD-Fenster** (der Start läuft komplett ohne Kommandozeile)
+- **Portable behält die Verknüpfung**: Die neue Version überschreibt die bestehende Datei nach dem Beenden – der Desktop-Klick öffnet danach die neue Version
+- **Android-Installation robuster**: Der APK-Download läuft im Hintergrund (App bleibt bedienbar); scheitert der System-Installer, öffnet sich automatisch der Browser mit der APK
+- **Klare Rückmeldungen**: Jeder Schritt meldet jetzt, was passiert („Installer geöffnet“, „Update wird installiert“, „startet gleich neu“)
 
 ### 1.0.21
 - **Freigabe-Button immer sichtbar**: Der Gemini-Sparkle-Button neben dem Pin erscheint jetzt auf jeder Listen- und Notizkarte (Modus „Nur exponierte") – auch wenn die KI noch nicht eingerichtet ist; grau = nicht freigegeben, farbig = freigegeben
