@@ -10,6 +10,7 @@ import { pruneEmptyItems } from './parts.js';
 import { onRoute, start as startRouter, navigate } from './router.js';
 import { platform } from './bridge.js';
 import * as U from './update.js';
+import * as gemini from './gemini.js';
 import { debounce, haptic } from './util.js';
 
 /* ---------------- Rendering mit Fokus-Schutz ---------------- */
@@ -95,6 +96,19 @@ function wireCalBtn() {
   db.on('settings', (p) => { if (p.key === 'calendarEnabled') apply(); });
 }
 
+/* ---------------- Gemini-Button (Topbar) ---------------- */
+
+function wireGeminiBtn() {
+  const btn = document.getElementById('geminiBtn');
+  if (!btn) return;
+  const apply = () => { btn.hidden = !gemini.isGeminiReady(); };
+  btn.addEventListener('click', () => S.openGeminiChat());
+  apply();
+  db.on('settings', (p) => {
+    if (p.key === 'geminiEnabled' || p.key === 'geminiApiKey') apply();
+  });
+}
+
 /* ---------------- Sync-Status ---------------- */
 
 const STATE_MAP = { ok: 'ok', syncing: 'syncing', offline: 'offline', error: 'error', disconnected: 'waiting', idle: 'idle' };
@@ -155,6 +169,7 @@ async function boot() {
   wireSearch();
   wireDrawer();
   wireCalBtn();
+  wireGeminiBtn();
   wireSyncStatus();
   wireFab();
 
@@ -179,7 +194,7 @@ async function boot() {
   });
 
   // Debug-/Entwickler-Schnittstelle
-  window.secondmind = { db, sync, sheets: S, render, update: U };
+  window.secondmind = { db, sync, sheets: S, render, update: U, gemini };
 
   // Sync starten
   await sync.initTokens();

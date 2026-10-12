@@ -21,6 +21,11 @@ const DEFAULT_SETTINGS = {
   scopeMode: 'file',        // 'file' (drive.file) | 'full' (drive)
   theme: 'auto',            // auto | light | dark
   showDone: true,           // Historie im Listen-Detail anzeigen
+  geminiEnabled: false,     // optionale Gemini-KI ein/aus
+  geminiApiKey: '',         // Gemini-API-Key (bleibt lokal)
+  geminiMode: 'custom',     // 'full' = alle Einträge | 'custom' = nur exponierte
+  geminiExposedLists: [],   // exponierte Listen-IDs (Modus custom)
+  geminiExposedNotes: [],   // exponierte Notiz-IDs (Modus custom)
 };
 
 /* ---------------- Event-Bus ---------------- */

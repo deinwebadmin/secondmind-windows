@@ -7,7 +7,7 @@ export const uid = () =>
 export const now = () => Date.now();
 
 /** App-Version (mit package.json / build.gradle abgleichen) */
-export const APP_VERSION = '1.0.16';
+export const APP_VERSION = '1.0.17';
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 
@@ -174,6 +174,8 @@ export const ICON = {
   archive: sv('<path d="M4 8.5h16V19a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V8.5ZM3 4.5h18v4H3v-4Zm6.5 8h5"/>'),
   memory: sv('<path d="M12 4.5c-3.6 0-6 2.3-6 5.2 0 1.7.8 3 1.9 3.9-.4 1.1-1.9 1.9-1.9 3.6 0 2.9 2.5 5.3 6 5.3s6-2.4 6-5.3c0-1.7-1.5-2.5-1.9-3.6 1.1-.9 1.9-2.2 1.9-3.9 0-2.9-2.4-5.2-6-5.2Z"/>'),
   pin: sv('<path d="M9 4h6l-1 6 3.5 3.5H6.5L10 10 9 4Zm3 9.5V20"/>'),
+  /* Gemini-Sparkle (4-Zacken-Stern im Google-Gradient) */
+  gemini: `<svg viewBox="0 0 24 24" aria-hidden="true"><defs><linearGradient id="geminiGrad" x1="4" y1="3" x2="20" y2="21" gradientUnits="userSpaceOnUse"><stop offset="0" stop-color="#4285F4"/><stop offset=".5" stop-color="#9B72CB"/><stop offset="1" stop-color="#D96570"/></linearGradient></defs><path fill="url(#geminiGrad)" d="M12 2c.5 5.8 4.2 9.5 10 10-5.8.5-9.5 4.2-10 10-.5-5.8-4.2-9.5-10-10 5.8-.5 9.5-4.2 10-10Z"/></svg>`,
   link: sv('<path d="M10 13.5a4 4 0 0 0 5.7.3l2.6-2.6a4 4 0 0 0-5.7-5.7L11 7.2M14 10.5a4 4 0 0 0-5.7-.3l-2.6 2.6a4 4 0 0 0 5.7 5.7L13 16.8"/>'),
   clip: sv('<path d="M20.2 11.3l-8 8a4.6 4.6 0 0 1-6.5-6.5l8.4-8.4a3.1 3.1 0 1 1 4.4 4.4l-8.4 8.4a1.6 1.6 0 0 1-2.2-2.2l7.6-7.6"/>'),
   image: sv('<rect x="3.5" y="5" width="17" height="14" rx="2.5"/><circle cx="9" cy="10" r="1.6"/><path d="m5 17 4.5-4.5L14 17m1.5-2L18 14.5"/>'),

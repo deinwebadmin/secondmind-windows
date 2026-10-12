@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.16.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.16/secondmind-Setup-1.0.16.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.16-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.16/secondmind-1.0.16-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.17.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.17/secondmind-Setup-1.0.17.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.17-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.17/secondmind-1.0.17-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,11 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.17
+- **Optionale Gemini-KI-Integration**: in den Einstellungen an-/abschaltbar, API-Key wird lokal eingetragen (Modell `gemini-2.5-flash`)
+- **Zugriffskontrolle**: Standard „Nur exponierte" – pro Karte (Liste/Notiz) ein Gemini-Sparkle-Button **neben dem Pin**, der diese Karte für die KI freigibt; alternativ „Alle Einträge" auf ausdrückliche Wahl
+- **Gemini-Chat**: Sparkle-Button in der Topbar (sichtbar, sobald eingerichtet) sowie in den Einstellungen – Anfragen enthalten ausschließlich die freigegebenen Inhalte, in Deutsch verständliche Fehlermeldungen
 
 ### 1.0.16
 - **Anpinnen**: Der Pin-Button zeigt immer das 📌-Icon – **grau solange nicht angepinnt, farbig wenn aktiv** (gilt für die Karten auf der Startseite sowie die Pins im Listen- und Notiz-Detail; 📍 ist verschwunden)

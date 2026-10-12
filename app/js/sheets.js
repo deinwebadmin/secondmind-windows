@@ -4,6 +4,7 @@
 import * as db from './db.js';
 import { esc, ICON, haptic, fmtBytes, WEEKDAYS, WEEKDAYS_SHORT, TAG_COLORS, isoDate, parseISO, addMinutesToTime } from './util.js';
 import { navigate } from './router.js';
+import * as gemini from './gemini.js';
 
 const root = () => document.getElementById('sheetRoot');
 const toastRoot = () => document.getElementById('toastRoot');
@@ -868,6 +869,69 @@ export function openDurSheet(itemId) {
         handle.close();
         setTimeout(() => openPlanSheet(itemId), 260);
       });
+    },
+  });
+}
+
+/* ---------------- Gemini-Chat ---------------- */
+
+/** Chat mit Gemini – Kontext = die laut Zugriffseinstellung freigegebenen Inhalte. */
+export function openGeminiChat() {
+  if (!gemini.isGeminiReady()) {
+    toast('Bitte zuerst in den Einstellungen Gemini aktivieren und den API-Key eintragen.');
+    return;
+  }
+
+  openSheet({
+    title: 'Gemini',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Schließen</button>',
+    body: `
+      <div class="r-note" style="margin:0 2px 10px">${esc(gemini.exposureSummary())}</div>
+      <div class="gchat" id="gchatLog"></div>
+      <div class="gsend">
+        <input class="text-in" id="gchatIn" placeholder="Frage zu deinen Inhalten …" autocomplete="off" spellcheck="false">
+        <button class="btn" id="gchatSend">Senden</button>
+      </div>`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+      const log = sheet.querySelector('#gchatLog');
+      const input = sheet.querySelector('#gchatIn');
+      const sendBtn = sheet.querySelector('#gchatSend');
+
+      const add = (rolle, text, klasse = '') => {
+        const b = document.createElement('div');
+        b.className = `gb ${rolle}${klasse ? ' ' + klasse : ''}`;
+        b.textContent = text;
+        log.appendChild(b);
+        log.scrollTop = log.scrollHeight;
+        return b;
+      };
+
+      add('ai', 'Hallo! Frag mich ruhig zu deinen freigegebenen Inhalten – z. B. „Was steht diese Woche an?“');
+
+      const send = async () => {
+        const q = input.value.trim();
+        if (!q) return;
+        input.value = '';
+        add('user', q);
+        const bubble = add('ai', 'Denkt nach …', 'busy');
+        sendBtn.disabled = true;
+        try {
+          bubble.textContent = await gemini.askGemini(q);
+        } catch (err) {
+          bubble.textContent = `⚠️ ${err.message}`;
+          bubble.classList.add('err');
+        } finally {
+          bubble.classList.remove('busy');
+          sendBtn.disabled = false;
+          log.scrollTop = log.scrollHeight;
+        }
+      };
+
+      sendBtn.onclick = send;
+      input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
+      setTimeout(() => input.focus(), 60);
     },
   });
 }

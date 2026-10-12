@@ -3,6 +3,7 @@
 
 import * as db from './db.js';
 import * as S from './sheets.js';
+import { isGeminiReady, isExposed } from './gemini.js';
 import { esc, ICON, fmtRel, spring, rubberband, reducedMotion, haptic, fmtBytes, tagChip } from './util.js';
 import { navigate } from './router.js';
 
@@ -66,6 +67,11 @@ export function listCardHtml(list, { context = 'home' } = {}) {
   const pin = list.archived ? '' : `
     <button class="card-pin ${list.pinned ? 'on' : ''}" data-act="pin-card" data-id="${list.id}"
       aria-label="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${list.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
+  // Gemini: Button neben dem Pin – nur im benutzerdefinierten Modus (Exponieren)
+  const geminiBtn = (list.archived || !isGeminiReady() || db.state.settings.geminiMode === 'full') ? '' : `
+    <button class="card-gemini ${isExposed('list', list.id) ? 'on' : ''}" data-act="gemini-expose" data-kind="list" data-id="${list.id}"
+      aria-label="Für Gemini ${isExposed('list', list.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}"
+      title="Für Gemini ${isExposed('list', list.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}">${ICON.gemini}</button>`;
 
   return `
     <div class="list-card card" data-href="#/liste/${list.id}" ${cardStyle(list.bg)}>
@@ -74,6 +80,7 @@ export function listCardHtml(list, { context = 'home' } = {}) {
         <div class="card-title">${esc(list.title || 'Ohne Titel')}</div>
         ${tagBtn}
         ${pin}
+        ${geminiBtn}
       </div>
       ${preview.length ? `<ul class="card-items">${preview.map((p) => `
         <li><span class="ci"></span><span class="cix">${esc(p.text)}</span></li>`).join('')}</ul>` : ''}
@@ -100,6 +107,11 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
   const pin = note.archived ? '' : `
     <button class="card-pin ${note.pinned ? 'on' : ''}" data-act="pin-card" data-id="${note.id}"
       aria-label="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}" title="${note.pinned ? 'Von der Startseite lösen' : 'Anpinnen'}">📌</button>`;
+  // Gemini: Button neben dem Pin – nur im benutzerdefinierten Modus (Exponieren)
+  const geminiBtn = (note.archived || !isGeminiReady() || db.state.settings.geminiMode === 'full') ? '' : `
+    <button class="card-gemini ${isExposed('note', note.id) ? 'on' : ''}" data-act="gemini-expose" data-kind="note" data-id="${note.id}"
+      aria-label="Für Gemini ${isExposed('note', note.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}"
+      title="Für Gemini ${isExposed('note', note.id) ? 'freigegeben – klicken zum Entfernen' : 'freigeben'}">${ICON.gemini}</button>`;
 
   return `
     <div class="note-card card" data-href="#/notiz/${note.id}" ${cardStyle(note.bg)}>
@@ -108,6 +120,7 @@ export function noteCardHtml(note, { context = 'home' } = {}) {
         <div class="card-title">${esc(note.title || 'Notiz ohne Titel')}</div>
         ${tagBtn}
         ${pin}
+        ${geminiBtn}
       </div>
       ${preview ? `<div class="card-preview">${esc(preview)}</div>` : ''}
       <div class="card-meta">

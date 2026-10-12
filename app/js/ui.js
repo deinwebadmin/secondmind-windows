@@ -4,6 +4,7 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
+import * as gemini from './gemini.js';
 import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChip } from './util.js';
 import {
   listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
@@ -523,6 +524,19 @@ function handleAction(act, id, el, e) {
       else S.openDurSheet(id);
       return;
     }
+
+    case 'gemini-expose': {
+      e.stopPropagation();
+      const neu = gemini.toggleExposed(el.dataset.kind, id);
+      haptic(8);
+      S.toast(neu ? 'Für Gemini freigegeben' : 'Freigabe entfernt');
+      render();
+      return;
+    }
+
+    case 'gemini-chat':
+      S.openGeminiChat();
+      return;
 
     case 'item-archive':
       e.stopPropagation();

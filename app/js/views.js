@@ -8,6 +8,7 @@ import { esc, ICON, fmtRel, fmtDate, yearOf, download, fmtBytes, haptic, APP_VER
 import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bindSwipes, toggleItem, pruneEmptyItems } from './parts.js';
 import { navigate } from './router.js';
 import { platform } from './bridge.js';
+import * as gemini from './gemini.js';
 
 const view = () => document.getElementById('view');
 
@@ -811,6 +812,33 @@ export function renderSettings() {
     </div>
 
     <div class="settings-group">
+      <div class="grp-label">Gemini KI (optional)</div>
+      <button class="row tappable" data-toggle="geminiEnabled">
+        <span class="r-label">Gemini-Integration aktivieren</span>
+        <span class="switch ${s.geminiEnabled ? 'on' : ''}"></span>
+      </button>
+      ${s.geminiEnabled ? `
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <span class="r-label">API-Key</span>
+        <input class="text-in" id="geminiApiKey" type="password" placeholder="AIza…" value="${esc(s.geminiApiKey)}" spellcheck="false" autocapitalize="off" autocomplete="off">
+        <span class="r-note">Im Google AI Studio unter „API keys“ anlegen. Der Schlüssel bleibt auf deinen Geräten und wird nur für die Anfragen genutzt.</span>
+      </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
+        <span class="r-label">Zugriff auf deine Inhalte</span>
+        <div class="seg" data-seg="geminiMode">
+          <button class="${s.geminiMode !== 'full' ? 'on' : ''}" data-val="custom">Nur exponierte</button>
+          <button class="${s.geminiMode === 'full' ? 'on' : ''}" data-val="full">Alle Einträge</button>
+        </div>
+        <span class="r-note">${esc(gemini.exposureSummary())} Im benutzerdefinierten Modus gibt es pro Karte einen Gemini-Button neben dem Pin.</span>
+      </div>
+      <button class="row tappable" data-act="gemini-chat">
+        <span class="r-label" style="color:var(--accent)">Mit Gemini chatten</span>
+        <span class="chev">›</span>
+      </button>
+      <div class="row"><span class="r-note">Anfragen gehen direkt von hier zu Google. Gesendet werden nur die Inhalte laut Zugriffseinstellung – alles andere bleibt auf deinen Geräten.</span></div>` : ''}
+    </div>
+
+    <div class="settings-group">
       <div class="grp-label">Daten</div>
       <button class="row tappable" data-act="export">
         <span class="r-label">Daten exportieren (JSON)</span>
@@ -859,8 +887,15 @@ function bindSettings() {
       db.setSetting(key, !db.getSetting(key));
       btn.querySelector('.switch').classList.toggle('on');
       haptic(6);
+      if (key === 'geminiEnabled') renderSettings();   // Felder ein-/ausblenden
     });
   });
+
+  const gkey = v.querySelector('#geminiApiKey');
+  if (gkey) {
+    gkey.addEventListener('input', () => db.setSetting('geminiApiKey', gkey.value.trim()));
+    gkey.addEventListener('blur', () => db.setSetting('geminiApiKey', gkey.value.trim()));
+  }
 
   v.querySelectorAll('[data-seg]').forEach((seg) => {
     seg.querySelectorAll('button').forEach((b) => {
@@ -874,6 +909,7 @@ function bindSettings() {
         haptic(6);
         if (key === 'theme') applyTheme(val);
         if (key === 'syncInterval') sync.startSync();
+        if (key === 'geminiMode') renderSettings();    // Hinweisstext aktualisieren
       });
     });
   });
