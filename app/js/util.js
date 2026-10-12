@@ -7,7 +7,7 @@ export const uid = () =>
 export const now = () => Date.now();
 
 /** App-Version (mit package.json / build.gradle abgleichen) */
-export const APP_VERSION = '1.0.19';
+export const APP_VERSION = '1.0.20';
 
 export const clamp = (v, min, max) => Math.min(max, Math.max(min, v));
 

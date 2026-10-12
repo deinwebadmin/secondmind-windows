@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.19.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.19/secondmind-Setup-1.0.19.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.19-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.19/secondmind-1.0.19-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.20.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.20/secondmind-Setup-1.0.20.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.20-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.20/secondmind-1.0.20-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,13 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.20
+- **Kalender zum Abhaken**: jeder Eintrag (geplant oder ♻️) hat einen kleinen Kreis – ein Tipp hakt direkt im Kalender ab, erneuter Tipp macht es wieder offen
+- **Wiederholungen mit Zeit & Dauer**: ♻️-Punkte optional mit Uhrzeit und Dauer (neue Felder im Intervall-Sheet) – sie erscheinen dann positioniert im Stundenraster, gemeinsam mit normalen Terminen
+- **Notiz dabei**: steht eine Notiz am wiederkehrenden Punkt, zeigt der Kalendereintrag den Notiztitel (📝) – Tippen öffnet die Notiz
+- **Verschieben mit Rückfrage**: Ziehen einer Wiederholung in einen Zeitslot fragt „Für alle Wiederholungen" oder „Nur für diesen Tag" – Einzeltermine werden als Ausnahme gespeichert (z. B. einmal 14:00 statt 09:00)
+- **Seitenbereich ↔ Kalender**: normale Punkte lassen sich beidseitig ziehen – vom Seitenbereich ins Raster und zurück (der Termin wird herausgenommen, die Dauer bleibt erhalten)
 
 ### 1.0.19
 - **Stabile Reihenfolge**: Punkte in der Wiederkehrend-Liste ändern beim Aktivieren/Deaktivieren nie ihre Position – nur on/off

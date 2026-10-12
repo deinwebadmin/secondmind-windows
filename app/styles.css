@@ -449,6 +449,47 @@ a { color: var(--accent); text-decoration: none; }
   opacity: .95;
 }
 .cal-entry.repeat .ce-time { font-size: 10px; }
+.cal-entry.done { opacity: .6; }
+.cal-entry.done .ce-title { text-decoration: line-through; }
+
+/* Kalender: Abhaken-Button im Eintrag */
+.ce-check {
+  position: absolute;
+  top: 2px;
+  right: 2px;
+  width: 18px;
+  height: 18px;
+  padding: 0;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  border: 1.5px solid var(--separator);
+  border-radius: 50%;
+  background: var(--card, #fff);
+  color: transparent;
+  cursor: pointer;
+  z-index: 2;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.ce-check svg { width: 10px; height: 10px; }
+.ce-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.cal-entry .ce-sub[data-cal-note] { color: var(--accent); }
+
+/* Seitenbereich als Drop-Ziel */
+.cal-tray.drop-target { outline: 2px dashed var(--accent); outline-offset: -4px; }
+
+/* Wiederholungs-Sheet: Zeit & Dauer */
+.rep-dur { display: flex; gap: 6px; margin: 10px 0 4px; flex-wrap: wrap; }
+.rep-dur button {
+  padding: 7px 11px;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: none;
+  font-size: 12px;
+  color: var(--text);
+  cursor: pointer;
+}
+.rep-dur button.on { background: var(--accent); border-color: var(--accent); color: #fff; }
 
 /* Wiederholungs-Sheet */
 .rep-sheet-label {
@@ -894,6 +935,7 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 .cal-tray {
   position: sticky;
   top: 4px;
+  align-self: stretch;              /* volle Hoehe = groesserer Drop-Bereich */
   flex: 0 0 64px;
   display: flex;
   flex-direction: column;

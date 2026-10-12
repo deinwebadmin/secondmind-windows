@@ -438,7 +438,10 @@ export function renderCalendar() {
 
     const items = (planned.get(key) || []).slice()
       .sort((a, b) => startMinOf(a.plan) - startMinOf(b.plan));
-    cols += `<div class="cal-col${isToday ? ' is-today' : ''}" data-date="${key}">${repeatEntriesHtml(d)}${calEntriesHtml(items)}</div>`;
+    const reps = repeat.repeatsOn(d);
+    const repTimed = reps.filter((it) => repeat.repeatTimeOn(it, key).time);
+    const repAllDay = reps.filter((it) => !repeat.repeatTimeOn(it, key).time);
+    cols += `<div class="cal-col${isToday ? ' is-today' : ''}" data-date="${key}">${repeatAllDayHtml(repAllDay, key)}${calEntriesHtml(items, repTimed, key)}</div>`;
   }
 
   // Zeitachse: 24 Stunden
@@ -465,8 +468,8 @@ export function renderCalendar() {
     </div>
     ${tray.length ? `<div class="cal-body">${traySide(tray, 'left')}${grid}${traySide(tray, 'right')}</div>` : grid}
     <div class="cal-hint">${tray.length
-      ? '♻️ = wiederkehrende Aufgabe. Tipp auf eine leere Zeit – oder ziehe Punkte mit Dauer aus dem Seitenbereich ins Raster.'
-      : '♻️ = wiederkehrende Aufgabe. Tipp auf eine leere Zeit, um ein To-Do einzuplanen.'}</div>`;
+      ? 'Tipp: Kreis zum Abhaken – Ziehen verschiebt (♻️ fragt: alle Termine oder nur dieser). Zurück auf den Seitenbereich nimmt den Termin heraus.'
+      : 'Tipp: Kreis zum Abhaken – Tipp auf eine leere Zeit plant ein To-Do ein. ♻️ = wiederkehrende Aufgabe.'}</div>`;
 
   bindCalendar();
   bindTrayDrag(v);
@@ -571,54 +574,82 @@ function bindTrayDrag(v) {
   });
 }
 
-/** Einträge eines Tages als positionierte Blöcke – zeitgleiche Termine
-    verteilen sich auf Spuren nebeneinander. */
-/** Wiederkehrende Punkte (♻️) für einen Kalendertag – ganztägig am Spalten-
-    anfang, unabhängig von Uhrzeiten. Die Farbe des Punktes wird übernommen. */
-function repeatEntriesHtml(date) {
-  const items = repeat.repeatsOn(date);
+/** Minuten aus „HH:MM“ – für Zeiten wiederkehrender Punkte. */
+const timeToMin = (t) => {
+  const [h, m] = String(t || '0:00').split(':').map(Number);
+  return (h || 0) * 60 + (m || 0);
+};
+
+/** Notiz-Rückverweis für einen Eintrag (Titel oder null). */
+function noteSubOf(it) {
+  const note = it.noteId ? db.byId(it.noteId) : null;
+  return note && !note.deleted ? (note.title || 'Notiz ohne Titel') : null;
+}
+
+/** Wiederkehrende Punkte OHNE Uhrzeit: ganztägig am Spaltenanfang. */
+function repeatAllDayHtml(items, dateKey) {
   if (!items.length) return '';
   return items.map((it, i) => {
     const c = it.color && it.color !== 'neutral' ? ` c-${it.color}` : '';
+    const noteTitle = noteSubOf(it);
+    const done = repeat.isDoneOn(it, dateKey);
     return `
-    <button class="cal-entry repeat${c}" data-cal="repeat" data-id="${it.id}"
+    <button class="cal-entry repeat${c}${done ? ' done' : ''}" data-cal="repeat" data-id="${it.id}"
       style="top:${4 + i * 22}px;height:20px;left:2px;right:2px;width:auto"
-      title="Wiederkehrender Punkt – tippen zum Bearbeiten">
+      title="Wiederkehrender Punkt – ziehen für eine Uhrzeit, tippen zum Bearbeiten">
       <span class="ce-time">♻️</span>
       <span class="ce-title">${esc(it.text || 'Ohne Text')}</span>
+      ${noteTitle ? `<span class="ce-sub" data-cal-note="${it.noteId}">📝 ${esc(noteTitle)}</span>` : ''}
+      <span class="ce-check${done ? ' on' : ''}" data-cal-check="repeat" data-id="${it.id}" data-date="${dateKey}"
+        aria-label="Als erledigt markieren" title="Als erledigt markieren">${ICON.check}</span>
     </button>`;
   }).join('');
 }
 
-function calEntriesHtml(items) {
-  if (!items.length) return '';
+/** Einträge eines Tages als positionierte Blöcke – geplante Punkte und
+    zeitbezogene Wiederholungen teilen sich die Spuren nebeneinander. */
+function calEntriesHtml(items, reps = [], dateKey = '') {
+  const all = [
+    ...items.map((it) => ({ it, s: startMinOf(it.plan), dur: Math.max(Number(it.plan?.dur) || 0, 15), rep: false })),
+    ...reps.map((it) => {
+      const t = repeat.repeatTimeOn(it, dateKey);
+      return { it, s: timeToMin(t.time), dur: Math.max(Number(t.dur) || 30, 15), rep: true };
+    }),
+  ].sort((a, b) => a.s - b.s);
+  if (!all.length) return '';
   const laneEnds = [];                      // Endminuten je Spur
-  const placed = items.map((it) => {
-    const s = startMinOf(it.plan);
-    const dur = Math.max(Number(it.plan?.dur) || 0, 15);
-    const e = Math.min(1440, s + dur);
-    let lane = laneEnds.findIndex((end) => end <= s);
+  for (const p of all) {
+    const e = Math.min(1440, p.s + p.dur);
+    let lane = laneEnds.findIndex((end) => end <= p.s);
     if (lane === -1) { lane = laneEnds.length; laneEnds.push(e); } else laneEnds[lane] = e;
-    return { it, s, dur, lane };
-  });
+    p.lane = lane;
+  }
   const lanes = Math.max(1, laneEnds.length);
-  return placed.map((p) => calEntryHtml(p, lanes)).join('');
+  return all.map((p) => calEntryHtml(p, lanes, dateKey)).join('');
 }
 
-function calEntryHtml(p, lanes) {
-  const { it, s, dur, lane } = p;
+function calEntryHtml(p, lanes, dateKey = '') {
+  const { it, s, dur, lane, rep } = p;
   const list = db.byId(it.listId);
   const color = it.color && it.color !== 'neutral' ? it.color : '';
   const w = 100 / lanes;
   const top = Math.round(s / 60 * HOUR_H);
   const h = Math.max(20, Math.round(dur / 60 * HOUR_H) - 2);
+  const done = rep ? repeat.isDoneOn(it, dateKey) : !!it.done;
+  const noteTitle = rep ? noteSubOf(it) : null;
+  const timeText = rep ? (repeat.repeatTimeOn(it, dateKey).time || '') : (it.plan.time || '');
+  const sub = rep
+    ? (noteTitle ? `📝 ${noteTitle}` : 'Wiederkehrend')
+    : (list?.title || 'Liste');
   return `
-    <button class="cal-entry${color ? ` c-${color}` : ''}${it.done ? ' done' : ''}${h < 40 ? ' tight' : ''}"
-      data-cal="plan" data-id="${it.id}"
+    <button class="cal-entry${color ? ` c-${color}` : ''}${done ? ' done' : ''}${rep ? ' repeat' : ''}${h < 40 ? ' tight' : ''}"
+      data-cal="${rep ? 'repeat' : 'plan'}" data-id="${it.id}"
       style="top:${top}px;height:${h}px;left:calc(${(lane * w).toFixed(2)}% + 2px);width:calc(${w.toFixed(2)}% - 4px)">
-      <span class="ce-time">${esc(it.plan.time || '')}</span>
+      <span class="ce-time">${esc(timeText)}</span>
       <span class="ce-title">${esc(it.text || 'Ohne Text')}</span>
-      <span class="ce-sub">${esc(list?.title || 'Liste')}</span>
+      <span class="ce-sub"${noteTitle ? ` data-cal-note="${it.noteId}"` : ''}>${esc(sub)}</span>
+      <span class="ce-check${done ? ' on' : ''}" data-cal-check="${rep ? 'repeat' : 'item'}" data-id="${it.id}" data-date="${dateKey}"
+        aria-label="Als erledigt markieren" title="Als erledigt markieren">${ICON.check}</span>
     </button>`;
 }
 
@@ -634,6 +665,34 @@ function bindCalendar() {
       else if (a === 'today') { calMonday = mondayOfWeek(); haptic(6); renderCalendar(); }
       else if (a === 'plan') S.openPlanSheet(b.dataset.id);
       else if (a === 'repeat') S.openRepeatSheet(b.dataset.id);
+    });
+  });
+
+  // Abhaken direkt im Kalender: geplante Punkte und Wiederholungs-Termine
+  v.querySelectorAll('[data-cal-check]').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const id = b.dataset.id;
+      const rec = db.byId(id);
+      if (!rec) return;
+      haptic(10);
+      if (b.dataset.calCheck === 'repeat') {
+        repeat.markDoneOn(rec, b.dataset.date);
+        S.toast(repeat.isDoneOn(rec, b.dataset.date) ? 'Termin erledigt' : 'Termin wieder offen');
+      } else {
+        const lst = db.byId(rec.listId);
+        toggleItem(id, lst);
+      }
+      renderCalendar();
+    });
+  });
+
+  // Notiz-Rückverweis im Eintrag: öffnet die verknüpfte Notiz
+  v.querySelectorAll('[data-cal-note]').forEach((b) => {
+    b.addEventListener('click', (e) => {
+      e.stopPropagation();
+      haptic(6);
+      navigate(`#/notiz/${b.dataset.calNote}`);
     });
   });
 
@@ -671,11 +730,15 @@ function bindCalendar() {
   v.scrollTop = Math.max(0, Math.round(focusMin / 60 * HOUR_H) - 150);
 }
 
-/** Termine im Raster verschieben: Tag (Spalte) und Uhrzeit (Höhe) per Drag. */
+/** Termine im Raster verschieben: Tag (Spalte) und Uhrzeit (Höhe) per Drag.
+    Wiederholungen fragen beim Loslassen, ob der neue Zeitslot für alle
+    Termine oder nur für diesen gelten soll. Ein Ablegen auf den Seiten-
+   bereich nimmt den Termin (normale Punkte) bzw. die Uhrzeit (Wieder-
+    holungen) wieder heraus. */
 function bindCalDrag(v) {
   v.querySelectorAll('.cal-entry').forEach((entry) => {
     let pid = null, sx = 0, sy = 0, top0 = 0, newTop = 0, h = 0;
-    let dragging = false, id = null, item = null, cols = [], curCol = null;
+    let dragging = false, id = null, item = null, cols = [], curCol = null, trayHigh = null, trayRects = [];
 
     entry.addEventListener('pointerdown', (e) => {
       if (e.pointerType === 'mouse' && e.button !== 0) return;
@@ -686,16 +749,19 @@ function bindCalDrag(v) {
     });
 
     entry.addEventListener('pointermove', (e) => {
-      if (pid !== e.pointerId || !item?.plan) return;
+      if (pid !== e.pointerId || (!item?.plan && !item?.repeat)) return;
       const dx = e.clientX - sx, dy = e.clientY - sy;
       if (!dragging) {
         if (Math.abs(dx) < 7 && Math.abs(dy) < 7) return;
         dragging = true;
         entry.classList.add('dragging');
+        entry.style.pointerEvents = 'none';   // sonst verdeckt der Eintrag die Drop-Ziele
         try { entry.setPointerCapture(e.pointerId); } catch { /* egal */ }
         cols = [...v.querySelectorAll('.cal-col')]
           .map((c) => ({ el: c, date: c.dataset.date, r: c.getBoundingClientRect() }));
         curCol = cols.find((c) => c.el.contains(entry)) || null;
+        trayRects = [...v.querySelectorAll('.cal-tray')]
+          .map((t) => ({ el: t, r: t.getBoundingClientRect() }));
         haptic(8);
       }
       newTop = Math.max(0, Math.min(GRID_H - h, Math.round((top0 + dy) / SNAP) * SNAP));
@@ -706,6 +772,14 @@ function bindCalDrag(v) {
         curCol = over;
         curCol.el.classList.add('drop-target');
       }
+      // Ablegen auf den Seitenbereich (Tray) = Termin herausnehmen
+      const tray = trayRects.find((t) => e.clientX >= t.r.left && e.clientX <= t.r.right && e.clientY >= t.r.top && e.clientY <= t.r.bottom);
+      const trayNow = tray ? tray.el : null;
+      if (trayNow !== trayHigh) {
+        trayHigh?.classList.remove('drop-target');
+        trayHigh = trayNow;
+        trayHigh?.classList.add('drop-target');
+      }
     });
 
     const finish = (e, commit) => {
@@ -715,17 +789,36 @@ function bindCalDrag(v) {
       if (!wasDrag) return;                 // Tap: das click-Event öffnet das Sheet
       entry.classList.remove('dragging');
       entry.style.transform = '';
+      entry.style.pointerEvents = '';
       cols.forEach((c) => c.el.classList.remove('drop-target'));
+      trayHigh?.classList.remove('drop-target');
+      trayHigh = null;
       // Klick nach dem Ziehen unterdrücken
       const swallow = (ev) => { ev.stopPropagation(); ev.preventDefault(); };
       entry.addEventListener('click', swallow, { capture: true, once: true });
 
-      const date = curCol?.date || item.plan.date;
+      const date = curCol?.date || item.plan?.date;
       const time = fmtHM(Math.round(newTop / HOUR_H * 60));
-      if (commit && (date !== item.plan.date || time !== (item.plan.time || ''))) {
-        db.update(id, { plan: { ...item.plan, date, time } });
-        haptic(14);
-        S.toast('Termin verschoben');
+      // Wurde auf den Seitenbereich (Tray) losgelassen? Beim pointerup prüfen
+      const onTrayNow = trayRects.some((t) => e.clientX >= t.r.left && e.clientX <= t.r.right && e.clientY >= t.r.top && e.clientY <= t.r.bottom);
+      if (commit) {
+        if (item.repeat) {
+          // Wiederholung: Scope-Frage (alle Termine vs. nur dieser Tag)
+          haptic(14);
+          S.openRepeatMoveSheet(id, date || curCol?.date, onTrayNow ? null : time);
+        } else if (item.plan) {
+          if (onTrayNow) {
+            if (item.plan.date) {
+              db.update(id, { plan: { ...item.plan, date: null } });
+              haptic(14);
+              S.toast('Zurück im Seitenbereich');
+            }
+          } else if (date !== item.plan.date || time !== (item.plan.time || '')) {
+            db.update(id, { plan: { ...item.plan, date, time } });
+            haptic(14);
+            S.toast('Termin verschoben');
+          }
+        }
       }
       renderCalendar();
     };

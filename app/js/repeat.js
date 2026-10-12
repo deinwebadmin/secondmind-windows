@@ -173,3 +173,36 @@ export function repeatsOn(date) {
   }
   return out.sort((a, b) => (a.text || '').localeCompare(b.text || ''));
 }
+
+/** Uhrzeit und Dauer für das Vorkommen an einem bestimmten Tag: Einzel-
+    Termine (exceptions) überschreiben die Regel – sonst gelten repeat.time
+    und repeat.dur. */
+export function repeatTimeOn(it, date) {
+  const rep = it?.repeat;
+  if (!rep) return { time: null, dur: null };
+  const key = typeof date === 'string' ? date : isoDate(date);
+  const ex = (rep.exceptions || []).find((e) => e.date === key);
+  if (ex) return { time: ex.time || null, dur: ex.dur !== undefined ? ex.dur : (rep.dur || null) };
+  return { time: rep.time || null, dur: rep.dur || null };
+}
+
+/** Ist das Vorkommen an diesem Tag erledigt (lastDone deckt es ab)? */
+export function isDoneOn(it, dateKey) {
+  const ld = it?.repeat?.lastDone;
+  return !!ld && ld >= dateKey;              // ISO-Strings vergleichen sich lexical
+}
+
+/** Vorkommen an einem Kalendertag abhaken – erneuter Klick öffnet es wieder. */
+export function markDoneOn(it, dateKey) {
+  const was = isDoneOn(it, dateKey);
+  db.update(it.id, { repeat: { ...it.repeat, enabled: it.repeat?.enabled !== false, lastDone: was ? null : dateKey } });
+}
+
+/** Zeit für einen einzelnen Termin als Ausnahme speichern (time = null
+    entfernt die Zeit nur für diesen Tag). */
+export function setException(it, dateKey, time, dur) {
+  const rep = it.repeat || {};
+  const rest = (rep.exceptions || []).filter((e) => e.date !== dateKey);
+  rest.push({ date: dateKey, time: time || null, dur: dur !== undefined ? dur : (rep.dur || null) });
+  db.update(it.id, { repeat: { ...rep, enabled: rep.enabled !== false, exceptions: rest } });
+}

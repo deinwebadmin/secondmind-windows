@@ -958,6 +958,8 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
     weekday: r0.weekday ?? new Date().getDay(),
     day: r0.day || new Date().getDate(),
     start: r0.start || isoDate(),
+    time: r0.time || '',
+    dur: r0.dur || null,
   };
 
   openSheet({
@@ -975,6 +977,12 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
         <button data-val="monthly" class="${draft.freq === 'monthly' ? 'on' : ''}">Monatlich</button>
       </div>
       <div id="repOptions"></div>
+      <div class="rep-sheet-label">Zeit & Dauer (optional)</div>
+      <input type="time" class="text-in" id="repTime" value="${esc(draft.time)}">
+      <div class="rep-dur">
+        ${[null, 15, 30, 45, 60, 90, 120].map((d) => `
+          <button data-dur="${d ?? ''}" class="${(draft.dur || null) === d ? 'on' : ''}">${d === null ? 'Ohne' : `${d} Min`}</button>`).join('')}
+      </div>
       <button class="btn" id="repSave" style="margin-top:18px">${it ? 'Fertig' : 'Wiederholung anlegen'}</button>
     `,
     onMount(sheet, handle) {
@@ -1031,6 +1039,17 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
       };
       renderOptions();
 
+      // Zeit & Dauer (optional)
+      const timeIn = sheet.querySelector('#repTime');
+      if (timeIn) timeIn.addEventListener('input', () => { draft.time = timeIn.value || ''; });
+      sheet.querySelectorAll('.rep-dur button').forEach((b) => {
+        b.addEventListener('click', () => {
+          draft.dur = Number(b.dataset.dur) || null;
+          sheet.querySelectorAll('.rep-dur button').forEach((x) => x.classList.toggle('on', x === b));
+          haptic(4);
+        });
+      });
+
       sheet.querySelectorAll('#repFreq button').forEach((b) => {
         b.addEventListener('click', () => {
           draft.freq = b.dataset.val;
@@ -1053,6 +1072,9 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
           start: draft.start,
           enabled: it ? it.repeat?.enabled !== false : true,
           lastDone: it?.repeat?.lastDone || null,
+          time: draft.time || null,
+          dur: draft.dur || null,
+          exceptions: it?.repeat?.exceptions || [],
         };
         handle.close();
         if (it) db.update(it.id, { repeat: rep });
@@ -1066,6 +1088,52 @@ export function openRepeatSheet(itemId = null, listIdParam = null) {
         input.addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
         setTimeout(() => input.focus(), 60);
       }
+    },
+  });
+}
+
+/** Nach dem Ziehen einer Wiederholung: gilt die neue Uhrzeit für alle
+    Termine der Regel oder nur für den einen Tag? */
+export function openRepeatMoveSheet(itemId, date, time) {
+  const it = db.byId(itemId);
+  if (!it?.repeat) return;
+  const key = date || isoDate();
+  const d = parseISO(key);
+  const label = d
+    ? `${WEEKDAYS[repeat.wdIdx(d.getDay())]} ${String(d.getDate()).padStart(2, '0')}.${String(d.getMonth() + 1).padStart(2, '0')}.`
+    : key;
+  const timeLabel = time ? `auf ${time} Uhr` : 'ohne Uhrzeit (ganztägig)';
+
+  openSheet({
+    title: 'Wiederholung verschieben',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
+    menu: `<div class="sheet-menu">
+      <button class="menu-btn" data-scope="all">
+        <span class="mi">♻️</span>
+        <span class="mb"><span>Für alle Wiederholungen</span><span class="ms">Zeit ${timeLabel} – ab ${label}</span></span>
+      </button>
+      <button class="menu-btn" data-scope="one">
+        <span class="mi">📅</span>
+        <span class="mb"><span>Nur für den ${label}</span><span class="ms">Einzelner Termin ${timeLabel}</span></span>
+      </button>
+    </div>`,
+    onMount(sheet, handle) {
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+      sheet.querySelectorAll('[data-scope]').forEach((b) => {
+        b.onclick = () => {
+          const rep = it.repeat;
+          handle.close();
+          if (b.dataset.scope === 'all') {
+            db.update(it.id, { repeat: { ...rep, enabled: rep.enabled !== false, time: time || null, dur: time ? (rep.dur || 30) : (rep.dur || null) } });
+            toast(time ? `Alle Wiederholungen ab ${time} Uhr` : 'Zeit für alle entfernt');
+          } else {
+            repeat.setException(it, key, time, time ? (repeat.repeatTimeOn(it, key).dur || 30) : undefined);
+            toast(time ? `Nur ${label}: ${time} Uhr` : `Termin am ${label} ohne Zeit`);
+          }
+          haptic(10);
+        };
+      });
     },
   });
 }
