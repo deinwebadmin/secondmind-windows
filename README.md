@@ -55,6 +55,48 @@ Der OAuth-Flow nutzt den **Loopback-Flow** (`http://127.0.0.1:PORT`), der für i
 Apps gedacht ist. Dadurch brauchst du weder eine SHA-1-Fingerabdruck-Registrierung noch
 kompilierte APK-Signaturen in der Cloud Console – eine einzige Client-ID für beide Plattformen.
 
+## Gemini-KI einrichten (optional)
+
+secondmind kann eine optionale KI begleiten lassen: Nach deinen To-Dos fragen, eine Notiz
+zusammenfassen oder Vorschläge formulieren – angetrieben von Googles Modell
+**`gemini-2.5-flash`**. Die Funktion ist standardmäßig **aus** und lässt sich jederzeit
+wieder abschalten.
+
+### 1. API-Key besorgen (kostenlos)
+
+1. <https://aistudio.google.com/apikey> öffnen und mit dem Google-Konto anmelden.
+2. **Create API key** wählen (beim ersten Mal ein Projekt anlegen bzw. wählen).
+3. Den erzeugten Schlüssel (beginnt mit `AIza…`) kopieren.
+
+> Im kostenlosen Tier des Google AI Studio ist der Privatgebrauch in der Regel ausreichend –
+> secondmind nutzt ausschließlich dein eigenes Google-Konto und dein Kontingent.
+
+### 2. In secondmind aktivieren
+
+1. **Einstellungen → „Gemini KI (optional)“** → **Gemini-Integration aktivieren**.
+2. Den Schlüssel ins Feld **API-Key** einfügen – er wird sofort gespeichert (masked).
+   Der Key bleibt auf deinen Geräten und wird mit deinen Einstellungen über Google Drive
+   auch auf dein zweites Gerät übernommen.
+3. **Zugriff auf deine Inhalte** wählen:
+   - **Nur exponierte** *(Standard)*: Die KI sieht ausschließlich Karten, die du freigibst –
+     pro Karte (Liste/Notiz) sitzt neben dem Pin ein **Gemini-Sparkle-Button**:
+     grau = nicht freigegeben, farbig = freigegeben; ein Tipp schaltet um („Für Gemini freigegeben“).
+   - **Alle Einträge**: Die KI darf alle aktiven Listen und Notizen auswerten (auf ausdrückliche Wahl).
+4. Fertig – in der Topbar oben rechts erscheint der **Gemini-Button** (Sparkle), der den Chat
+   öffnet. Derselbe Chat ist in den Einstellungen über **„Mit Gemini chatten“** erreichbar.
+
+### Was die KI sieht (und was nicht)
+
+- Anfragen gehen **direkt von deinem Gerät zur Google Gemini API** – es gibt keinen
+  Zwischenserver von secondmind.
+- Übermittelt werden nur die freigegebenen Inhalte: Listentitel, Punkte mit Status,
+  Tags und Terminen (inkl. Unterpunkte) sowie Titel und Text exponierter Notizen
+  (je Notiz bis 6.000 Zeichen).
+- Die KI antwortet auf Deutsch und wird angewiesen, ausschließlich diese Inhalte zu
+  nutzen und nichts zu erfinden.
+- Der API-Key wird nur für diese Anfragen genutzt; ungültige Schlüssel meldet secondmind
+  verständlich („muss mit „AIza“ beginnen, keine Leerzeichen“).
+
 ## Synverhalten
 
 | Situation | Verhalten |
@@ -91,6 +133,9 @@ Zusätzlich kannst du unter **Einstellungen → Daten** jederzeit ein JSON-Backu
 - **Farbcodierung** grün/gelb/rot/neutral für Punkte und Unterpunkte (Dringlichkeit).
 - **Einstellungen**: Memory an/aus, „Vor dem Löschen fragen“, Historie anzeigen, Design
   (Hell/Dunkel/Auto), Sync-Intervall, Export/Import.
+- **Optionale Gemini-KI**: Chat über deine Listen und Notizen (Modell `gemini-2.5-flash`) –
+  standardmäßig sieht nur, was du pro Karte mit dem Sparkle-Button neben dem Pin freigibst;
+  Einrichtung siehe [Gemini-KI einrichten](#gemini-ki-einrichten-optional).
 
 ## Entwicklung
 
