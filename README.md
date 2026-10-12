@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.17.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.17/secondmind-Setup-1.0.17.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.17-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.17/secondmind-1.0.17-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.18.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.18/secondmind-Setup-1.0.18.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.18-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.18/secondmind-1.0.18-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -120,6 +120,13 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.18
+- **Neue Liste „Wiederkehrend“ (♻️)**: wird automatisch angelegt – dort lebst du To-Dos, die sich wiederholen
+- **Täglich / wöchentlich / monatlich** – mit Intervall („alle n Tage/Wochen/Monate“), Wochentagswahl und Monatstag
+- **An- und ausschaltbar**: jeder Punkt hat einen Schalter zum Pausieren (ohne Löschen)
+- **Kalender-Verknüpfung**: wiederkehrende Aufgaben erscheinen als ♻️-Einträge in der Wochenübersicht; Tippen öffnet die Bearbeitung
+- **Fälligkeits-Logik**: gruppiert in „Fällig“, „Nächste Termine“ und „Pausiert“ – Abhaken plant automatisch den nächsten Termin ein
 
 ### 1.0.17
 - **Optionale Gemini-KI-Integration**: in den Einstellungen an-/abschaltbar, API-Key wird lokal eingetragen (Modell `gemini-2.5-flash`)

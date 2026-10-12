@@ -4,6 +4,7 @@
 import * as db from './db.js';
 import * as S from './sheets.js';
 import { isGeminiReady, isExposed } from './gemini.js';
+import * as repeat from './repeat.js';
 import { esc, ICON, fmtRel, spring, rubberband, reducedMotion, haptic, fmtBytes, tagChip } from './util.js';
 import { navigate } from './router.js';
 
@@ -31,9 +32,44 @@ const TPL = {
   woche: { emoji: '📅', label: 'Woche', cls: 'woche' },
   standard: { emoji: '🗒', label: 'Standard', cls: '' },
   simple: { emoji: '⚡️', label: 'Simpel', cls: 'einfach' },
+  repeat: { emoji: '♻️', label: 'Wiederkehrend', cls: 'repeat' },
 };
 
 export const tplInfo = (t) => TPL[t] || TPL.standard;
+
+/* ---------------- Wiederkehrende Punkte ---------------- */
+
+/** Eine Zeile in der „Wiederkehrend“-Liste: Abhaken, Regel-Badge, Fälligkeit
+    und An/Aus-Schalter. */
+export function repeatRowHtml(it) {
+  const rep = it.repeat || {};
+  const paused = rep.enabled === false;
+  const checked = repeat.isDoneForCycle(it);
+  const due = repeat.isDueToday(it);
+  const nd = repeat.nextDueDate(it);
+
+  const dueText = paused ? 'pausiert'
+    : due ? 'heute fällig'
+    : nd ? `wieder am ${repeat.dueLabel(nd)}`
+    : 'keine Termine mehr';
+
+  return `
+    <div class="rep-row${paused ? ' paused' : ''}" data-id="${it.id}">
+      <button class="rep-check${checked ? ' on' : ''}" data-act="repeat-check" data-id="${it.id}"
+        aria-label="${checked ? 'Als offen markieren' : 'Als erledigt markieren'}"
+        title="${checked ? 'Als offen markieren' : 'Als erledigt markieren'}">${ICON.check}</button>
+      <button class="rep-main" data-act="repeat-edit" data-id="${it.id}">
+        <span class="rep-text">${esc(it.text || 'Ohne Text')}</span>
+        <span class="rep-sub">
+          <span class="rep-badge">♻️ ${esc(repeat.freqLabel(rep))}</span>
+          <span class="rep-due${due && !paused ? ' f' : ''}">${esc(dueText)}</span>
+        </span>
+      </button>
+      <button class="switch${paused ? '' : ' on'}" data-act="repeat-toggle" data-id="${it.id}"
+        aria-label="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"
+        title="Wiederholung ${paused ? 'aktivieren' : 'pausieren'}"></button>
+    </div>`;
+}
 
 /* ---------------- Fortschritt ---------------- */
 
@@ -55,10 +91,16 @@ export function listCardHtml(list, { context = 'home' } = {}) {
   // Erste 5 (offene) Hauptpunkte als Vorschau auf der Startseite
   const preview = parents.filter((p) => !p.done && p.text.trim()).slice(0, 5);
 
-  const meta = [
-    list.template === 'woche' ? 'Wochenliste' : `${parents.length} Punkt${parents.length === 1 ? '' : 'e'}`,
-    parents.length ? `${done} erledigt` : 'leer',
-  ].join(' · ');
+  const meta = list.template === 'repeat'
+    ? [
+        `${parents.filter((p) => p.repeat?.enabled !== false).length} aktiv`,
+        parents.filter((p) => p.repeat?.enabled === false).length
+          ? `${parents.filter((p) => p.repeat?.enabled === false).length} pausiert` : null,
+      ].filter(Boolean).join(' · ')
+    : [
+        list.template === 'woche' ? 'Wochenliste' : `${parents.length} Punkt${parents.length === 1 ? '' : 'e'}`,
+        parents.length ? `${done} erledigt` : 'leer',
+      ].join(' · ');
 
   // Direktzugriff oben rechts: Tags öffnen + anpinnen (nicht im Archiv)
   const tagBtn = list.archived ? '' : `

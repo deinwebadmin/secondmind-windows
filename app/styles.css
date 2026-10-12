@@ -432,6 +432,110 @@ a { color: var(--accent); text-decoration: none; }
 .gsend { display: flex; gap: 8px; align-items: center; }
 .gsend .text-in { flex: 1; }
 .gsend .btn { flex: none; width: auto; padding: 0 16px; }
+
+/* Wiederkehrende Punkte (♻️) */
+.tpl-badge.repeat { background: var(--fill); color: var(--accent); }
+
+.rep-group { margin-bottom: 14px; }
+.rep-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding: 9px 6px;
+  border-bottom: 1px solid var(--separator);
+}
+.rep-row.paused { opacity: .55; }
+.rep-check {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 24px;
+  height: 24px;
+  flex: none;
+  padding: 0;
+  border: 1.8px solid var(--separator);
+  border-radius: 50%;
+  background: none;
+  cursor: pointer;
+  color: transparent;
+  transition: background .15s ease, border-color .15s ease, color .15s ease;
+}
+.rep-check svg { width: 14px; height: 14px; }
+.rep-check.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rep-main {
+  flex: 1;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  min-width: 0;
+  padding: 0;
+  border: none;
+  background: none;
+  text-align: left;
+  cursor: pointer;
+}
+.rep-text { font-size: 14.5px; word-break: break-word; }
+.rep-sub { display: flex; align-items: center; gap: 7px; flex-wrap: wrap; }
+.rep-badge {
+  font-size: 11px;
+  padding: 2px 7px;
+  border-radius: 8px;
+  background: var(--fill);
+  color: var(--label-2);
+  white-space: nowrap;
+}
+.rep-due { font-size: 11px; color: var(--label-3); }
+.rep-due.f { color: var(--accent); font-weight: 600; }
+
+/* Kalender: wiederkehrende Einträge (ganztägig, gestrichelt) */
+.cal-entry.repeat {
+  background: var(--fill);
+  border: 1px dashed var(--separator);
+  opacity: .95;
+}
+.cal-entry.repeat .ce-time { font-size: 10px; }
+
+/* Wiederholungs-Sheet */
+.rep-sheet-label {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--label-2);
+  margin: 14px 0 8px;
+}
+.rep-sheet-label:first-child { margin-top: 2px; }
+.rep-wd { display: flex; gap: 6px; margin: 10px 0 4px; }
+.rep-wd-chip {
+  flex: 1;
+  padding: 9px 0;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: none;
+  font-size: 12.5px;
+  cursor: pointer;
+  transition: background .12s ease;
+}
+.rep-wd-chip.on { background: var(--accent); border-color: var(--accent); color: #fff; }
+.rep-row-line { display: flex; align-items: center; gap: 8px; margin: 10px 0 4px; }
+.rep-step {
+  width: 36px;
+  height: 36px;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: none;
+  font-size: 17px;
+  cursor: pointer;
+}
+.rep-step:active { background: var(--fill); }
+.rep-step-val { min-width: 30px; text-align: center; font-weight: 600; }
+.rep-day {
+  width: 68px;
+  padding: 8px 0;
+  border-radius: 10px;
+  border: 1px solid var(--separator);
+  background: none;
+  text-align: center;
+  font-size: 14px;
+}
 .card-tag svg { width: 17px; height: 17px; }
 
 /* Erste Hauptpunkte als Vorschau auf der Startseite */

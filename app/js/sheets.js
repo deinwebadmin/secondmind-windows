@@ -5,6 +5,7 @@ import * as db from './db.js';
 import { esc, ICON, haptic, fmtBytes, WEEKDAYS, WEEKDAYS_SHORT, TAG_COLORS, isoDate, parseISO, addMinutesToTime } from './util.js';
 import { navigate } from './router.js';
 import * as gemini from './gemini.js';
+import * as repeat from './repeat.js';
 
 const root = () => document.getElementById('sheetRoot');
 const toastRoot = () => document.getElementById('toastRoot');
@@ -932,6 +933,146 @@ export function openGeminiChat() {
       sendBtn.onclick = send;
       input.addEventListener('keydown', (e) => { if (e.key === 'Enter') send(); });
       setTimeout(() => input.focus(), 60);
+    },
+  });
+}
+
+/* ---------------- Wiederkehrende Punkte ---------------- */
+
+/** Wiederkehrenden Punkt anlegen (itemId = null) oder bearbeiten. */
+export function openRepeatSheet(itemId = null, listIdParam = null) {
+  const it = itemId ? db.byId(itemId) : null;
+  if (itemId && (!it || !it.repeat)) return;
+
+  const listId = listIdParam || repeat.repeatListId();
+  if (!listId) {
+    toast('Die Wiederkehrend-Liste wurde gelöscht.');
+    return;
+  }
+
+  const r0 = it?.repeat || {};
+  const draft = {
+    freq: r0.freq || 'daily',
+    interval: Math.max(1, Number(r0.interval) || 1),
+    weekday: r0.weekday ?? new Date().getDay(),
+    day: r0.day || new Date().getDate(),
+    start: r0.start || isoDate(),
+  };
+
+  openSheet({
+    title: it ? 'Wiederholung bearbeiten' : 'Wiederkehrender Punkt',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Schließen</button>',
+    body: `
+      <div class="rep-sheet-label">Aufgabe</div>
+      <input class="text-in" id="repText" placeholder="Was wiederholt sich? (z. B. „Müll rausbringen“)"
+        value="${esc(it?.text || '')}" autocomplete="off" spellcheck="false" maxlength="120">
+      <div class="rep-sheet-label">Wiederholung</div>
+      <div class="seg" id="repFreq">
+        <button data-val="daily" class="${draft.freq === 'daily' ? 'on' : ''}">Täglich</button>
+        <button data-val="weekly" class="${draft.freq === 'weekly' ? 'on' : ''}">Wöchentlich</button>
+        <button data-val="monthly" class="${draft.freq === 'monthly' ? 'on' : ''}">Monatlich</button>
+      </div>
+      <div id="repOptions"></div>
+      <button class="btn" id="repSave" style="margin-top:18px">${it ? 'Änderungen speichern' : 'Wiederholung anlegen'}</button>
+      ${it ? '<button class="btn danger" id="repDel" style="margin-top:8px">🗑 Wiederholung löschen</button>' : ''}
+    `,
+    onMount(sheet, handle) {
+      const opt = sheet.querySelector('#repOptions');
+
+      const stepperHtml = (label, n) => `
+        <div class="rep-row-line">
+          <span class="r-label">${label}</span>
+          <button class="rep-step" data-step="-1" aria-label="weniger">−</button>
+          <span class="rep-step-val">${n}</span>
+          <button class="rep-step" data-step="1" aria-label="mehr">＋</button>
+        </div>`;
+
+      const renderOptions = () => {
+        let html = '';
+        if (draft.freq === 'daily') {
+          html = stepperHtml(draft.interval === 1 ? 'Jeden Tag' : `Alle … Tage`, draft.interval);
+        } else if (draft.freq === 'weekly') {
+          html = `
+            <div class="rep-wd">
+              ${[1, 2, 3, 4, 5, 6, 0].map((w) => `
+                <button class="rep-wd-chip${draft.weekday === w ? ' on' : ''}" data-wd="${w}">${WEEKDAYS_SHORT[repeat.wdIdx(w)]}</button>`).join('')}
+            </div>
+            ${stepperHtml(draft.interval === 1 ? 'Jede Woche' : 'Alle … Wochen', draft.interval)}`;
+        } else {
+          html = `
+            <div class="rep-row-line">
+              <span class="r-label">Am</span>
+              <input class="rep-day" id="repDay" type="number" min="1" max="31" value="${draft.day}">
+              <span class="r-label">des Monats</span>
+            </div>
+            ${stepperHtml(draft.interval === 1 ? 'Jeden Monat' : 'Alle … Monate', draft.interval)}`;
+        }
+        opt.innerHTML = html;
+
+        opt.querySelectorAll('[data-step]').forEach((b) => {
+          b.addEventListener('click', () => {
+            draft.interval = Math.min(30, Math.max(1, draft.interval + Number(b.dataset.step)));
+            haptic(4);
+            renderOptions();
+          });
+        });
+        opt.querySelectorAll('.rep-wd-chip').forEach((b) => {
+          b.addEventListener('click', () => {
+            draft.weekday = Number(b.dataset.wd);
+            haptic(4);
+            renderOptions();
+          });
+        });
+        const dayIn = opt.querySelector('#repDay');
+        if (dayIn) dayIn.addEventListener('input', () => {
+          draft.day = Math.min(31, Math.max(1, Number(dayIn.value) || 1));
+        });
+      };
+      renderOptions();
+
+      sheet.querySelectorAll('#repFreq button').forEach((b) => {
+        b.addEventListener('click', () => {
+          draft.freq = b.dataset.val;
+          sheet.querySelectorAll('#repFreq button').forEach((x) => x.classList.toggle('on', x === b));
+          haptic(4);
+          renderOptions();
+        });
+      });
+
+      sheet.querySelector('[data-close]').onclick = () => handle.close();
+
+      const save = () => {
+        const text = sheet.querySelector('#repText').value.trim();
+        if (!text) { toast('Bitte zuerst einen Text eingeben.'); return; }
+        const rep = {
+          freq: draft.freq,
+          interval: draft.interval,
+          weekday: draft.weekday,
+          day: draft.day,
+          start: draft.start,
+          enabled: it ? it.repeat?.enabled !== false : true,
+          lastDone: it?.repeat?.lastDone || null,
+        };
+        handle.close();
+        if (it) db.update(it.id, { text, repeat: rep });
+        else db.create('item', { listId, text, repeat: rep });
+        haptic(10);
+        toast(it ? 'Wiederholung aktualisiert' : 'Wiederholung angelegt');
+      };
+      sheet.querySelector('#repSave').onclick = save;
+      sheet.querySelector('#repText').addEventListener('keydown', (e) => { if (e.key === 'Enter') save(); });
+
+      const del = sheet.querySelector('#repDel');
+      if (del) del.onclick = () => {
+        if (!window.confirm('Wiederholung wirklich löschen?')) return;
+        handle.close();
+        db.update(it.id, { deleted: true });
+        haptic(12);
+        toast('Wiederholung gelöscht');
+      };
+
+      setTimeout(() => sheet.querySelector('#repText')?.focus(), 60);
     },
   });
 }

@@ -5,9 +5,10 @@ import * as db from './db.js';
 import * as S from './sheets.js';
 import * as sync from './sync.js';
 import * as gemini from './gemini.js';
+import * as repeat from './repeat.js';
 import { esc, ICON, fmtRel, haptic, WEEKDAYS, WEEKDAYS_SHORT, todayIndex, tagChip } from './util.js';
 import {
-  listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml,
+  listCardHtml, noteCardHtml, parentGroupHtml, cardSwipeHtml, repeatRowHtml,
   bindSwipes, bindItemDrag, toggleItem, addParentItem, addChildItem, pruneEmptyItems, tplInfo, cardStyle,
 } from './parts.js';
 import {
@@ -285,6 +286,7 @@ function renderList(id) {
   const kidsOf = (pid) => all.filter((i) => i.parentId === pid).sort((a, b) => (a.order || 0) - (b.order || 0));
   const isSimple = list.template === 'simple';
   const isWeek = list.template === 'woche';
+  const isRepeat = list.template === 'repeat';
 
   const activeParents = parents.filter((p) => !p.done);
   const doneParents = parents.filter((p) => p.done);
@@ -296,7 +298,26 @@ function renderList(id) {
 
   let body = '';
 
-  if (isWeek) {
+  if (isRepeat) {
+    // Wiederkehrend-Liste: fällige, geplante und pausierte Regeln gruppiert
+    const enabled = parents.filter((p) => p.repeat?.enabled !== false);
+    const paused = parents.filter((p) => p.repeat?.enabled === false);
+    const dueNow = enabled.filter((p) => repeat.isDueToday(p));
+    const later = enabled.filter((p) => !repeat.isDueToday(p));
+    const grp = (label, arr) => (arr.length ? `
+      <div class="rep-group">
+        <div class="day-head">${label} (${arr.length})</div>
+        ${arr.map(repeatRowHtml).join('')}
+      </div>` : '');
+    body = grp('Fällig', dueNow) + grp('Nächste Termine', later) + grp('Pausiert', paused);
+    if (!parents.length) {
+      body = emptyState('♻️', 'Noch keine Wiederholungen',
+        'Lege wiederkehrende Aufgaben an – täglich, wöchentlich oder monatlich. Sie erscheinen auch im Kalender.');
+    }
+    body += `<button class="add-item" data-act="add-repeat" data-id="${list.id}" style="margin-top:12px">
+      <span class="plus">＋</span> Wiederkehrender Punkt
+    </button>`;
+  } else if (isWeek) {
     const order = [...activeParents];
     for (let d = 0; d < 7; d++) {
       const dayItems = order.filter((p) => (p.day ?? -1) === d);
@@ -322,13 +343,13 @@ function renderList(id) {
     }
   }
 
-  if (!isWeek) {
+  if (!isWeek && !isRepeat) {
     body += `<button class="add-item" data-act="add-parent" data-id="${list.id}" style="margin-top:12px">
       <span class="plus">＋</span> Hauptpunkt
     </button>`;
   }
 
-  if (!isSimple && doneParents.length && db.getSetting('showDone')) {
+  if (!isSimple && !isRepeat && doneParents.length && db.getSetting('showDone')) {
     body += `<button class="hist-toggle ${histOpen ? 'open' : ''}" data-act="toggle-hist" style="margin-top:18px">
       <span>Abgehakt &amp; Historie (${doneParents.length})</span><span class="chev">›</span>
     </button>`;
@@ -357,7 +378,9 @@ function renderList(id) {
     <div class="detail-title" data-act="edit-title" ${cardStyle(list.bg, 'border-radius:12px;padding:6px 10px')}>${esc(list.title || 'Ohne Titel')}</div>
     <div class="detail-sub">
       <span class="tpl-badge ${t.cls}">${t.label}</span>
-      <span>${openCount} offen · ${doneCount} erledigt</span>
+      ${isRepeat
+        ? `<span>${parents.filter((p) => p.repeat?.enabled !== false).length} aktiv${parents.filter((p) => p.repeat?.enabled === false).length ? ` · ${parents.filter((p) => p.repeat?.enabled === false).length} pausiert` : ''}</span>`
+        : `<span>${openCount} offen · ${doneCount} erledigt</span>`}
       ${(list.tags || []).length ? list.tags.map((x) => tagChip(list, x)).join('') : ''}
     </div>
 
@@ -537,6 +560,41 @@ function handleAction(act, id, el, e) {
     case 'gemini-chat':
       S.openGeminiChat();
       return;
+
+    case 'add-repeat':
+      S.openRepeatSheet(null, id);
+      return;
+
+    case 'repeat-edit':
+      S.openRepeatSheet(id);
+      return;
+
+    case 'repeat-toggle': {
+      e.stopPropagation();
+      const rec = db.byId(id);
+      if (rec?.repeat) {
+        const wasOn = rec.repeat.enabled !== false;
+        repeat.setEnabled(rec, !wasOn);
+        haptic(6);
+        S.toast(wasOn ? 'Wiederholung pausiert' : 'Wiederholung aktiv');
+        render();
+      }
+      return;
+    }
+
+    case 'repeat-check': {
+      e.stopPropagation();
+      const rec = db.byId(id);
+      if (!rec?.repeat) return;
+      if (repeat.isDoneForCycle(rec)) {
+        repeat.resetDone(rec);
+      } else {
+        repeat.markDone(rec);
+        haptic(10);
+      }
+      render();
+      return;
+    }
 
     case 'item-archive':
       e.stopPropagation();

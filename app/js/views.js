@@ -9,6 +9,7 @@ import { cardSwipeHtml, itemRowHtml, noteCardHtml, listCardHtml, cardStyle, bind
 import { navigate } from './router.js';
 import { platform } from './bridge.js';
 import * as gemini from './gemini.js';
+import * as repeat from './repeat.js';
 
 const view = () => document.getElementById('view');
 
@@ -437,7 +438,7 @@ export function renderCalendar() {
 
     const items = (planned.get(key) || []).slice()
       .sort((a, b) => startMinOf(a.plan) - startMinOf(b.plan));
-    cols += `<div class="cal-col${isToday ? ' is-today' : ''}" data-date="${key}">${calEntriesHtml(items)}</div>`;
+    cols += `<div class="cal-col${isToday ? ' is-today' : ''}" data-date="${key}">${repeatEntriesHtml(d)}${calEntriesHtml(items)}</div>`;
   }
 
   // Zeitachse: 24 Stunden
@@ -464,8 +465,8 @@ export function renderCalendar() {
     </div>
     ${tray.length ? `<div class="cal-body">${traySide(tray, 'left')}${grid}${traySide(tray, 'right')}</div>` : grid}
     <div class="cal-hint">${tray.length
-      ? 'Tipp auf eine leere Zeit – oder ziehe Punkte mit Dauer aus dem Seitenbereich ins Raster.'
-      : 'Tipp auf eine leere Zeit, um ein To-Do einzuplanen.'}</div>`;
+      ? '♻️ = wiederkehrende Aufgabe. Tipp auf eine leere Zeit – oder ziehe Punkte mit Dauer aus dem Seitenbereich ins Raster.'
+      : '♻️ = wiederkehrende Aufgabe. Tipp auf eine leere Zeit, um ein To-Do einzuplanen.'}</div>`;
 
   bindCalendar();
   bindTrayDrag(v);
@@ -572,6 +573,20 @@ function bindTrayDrag(v) {
 
 /** Einträge eines Tages als positionierte Blöcke – zeitgleiche Termine
     verteilen sich auf Spuren nebeneinander. */
+/** Wiederkehrende Punkte (♻️) für einen Kalendertag – ganztägig am Spalten-
+    anfang, unabhängig von Uhrzeiten. */
+function repeatEntriesHtml(date) {
+  const items = repeat.repeatsOn(date);
+  if (!items.length) return '';
+  return items.map((it, i) => `
+    <button class="cal-entry repeat" data-cal="repeat" data-id="${it.id}"
+      style="top:${4 + i * 22}px;height:20px;left:2px;right:2px;width:auto"
+      title="Wiederkehrender Punkt – tippen zum Bearbeiten">
+      <span class="ce-time">♻️</span>
+      <span class="ce-title">${esc(it.text || 'Ohne Text')}</span>
+    </button>`).join('');
+}
+
 function calEntriesHtml(items) {
   if (!items.length) return '';
   const laneEnds = [];                      // Endminuten je Spur
@@ -615,6 +630,7 @@ function bindCalendar() {
       else if (a === 'next') { calMonday = addDays(ensureMonday(), 7); haptic(6); renderCalendar(); }
       else if (a === 'today') { calMonday = mondayOfWeek(); haptic(6); renderCalendar(); }
       else if (a === 'plan') S.openPlanSheet(b.dataset.id);
+      else if (a === 'repeat') S.openRepeatSheet(b.dataset.id);
     });
   });
 

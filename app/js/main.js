@@ -11,6 +11,7 @@ import { onRoute, start as startRouter, navigate } from './router.js';
 import { platform } from './bridge.js';
 import * as U from './update.js';
 import * as gemini from './gemini.js';
+import * as repeat from './repeat.js';
 import { debounce, haptic } from './util.js';
 
 /* ---------------- Rendering mit Fokus-Schutz ---------------- */
@@ -145,9 +146,14 @@ function wireFab() {
   });
 }
 
-function updateFab(route) {
+function updateFab(route, params) {
   const fab = document.getElementById('fab');
-  const show = route === 'home' || route === 'liste' || route === 'suche';
+  let show = route === 'home' || route === 'suche';
+  if (route === 'liste') {
+    // In der Wiederkehrend-Liste nutzt man den eigenen „＋“-Button
+    const l = params?.id ? db.byId(params.id) : null;
+    show = !(l && l.template === 'repeat');
+  }
   fab.classList.toggle('hidden', !show);
 }
 
@@ -164,6 +170,9 @@ async function boot() {
   }
 
   applyTheme(db.getSetting('theme') || 'auto');
+
+  // Seed-Liste für wiederkehrende Aufgaben (einmalig, beim Löschen bleibt es weg)
+  try { repeat.ensureRepeatList(); } catch (e) { console.warn('Repeat-Seed fehlgeschlagen', e); }
 
   bindActions();
   wireSearch();
@@ -182,7 +191,7 @@ async function boot() {
 
   // Routen
   onRoute((r) => {
-    updateFab(r.name);
+    updateFab(r.name, r.params);
     if (window.__closeDrawer && !document.getElementById('drawerRoot').hidden) window.__closeDrawer();
     render();
   });
@@ -194,7 +203,7 @@ async function boot() {
   });
 
   // Debug-/Entwickler-Schnittstelle
-  window.secondmind = { db, sync, sheets: S, render, update: U, gemini };
+  window.secondmind = { db, sync, sheets: S, render, update: U, gemini, repeat };
 
   // Sync starten
   await sync.initTokens();
