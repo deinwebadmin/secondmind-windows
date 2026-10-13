@@ -935,6 +935,13 @@ export function renderSettings() {
         <input class="text-in" id="geminiApiKey" type="password" placeholder="AIza…" value="${esc(s.geminiApiKey)}" spellcheck="false" autocapitalize="off" autocomplete="off">
         <span class="r-note">Im Google AI Studio unter „API keys“ anlegen. Der Schlüssel bleibt auf deinen Geräten und wird nur für die Anfragen genutzt.</span>
       </div>
+      <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
+        <span class="r-label">Modell</span>
+        <select class="text-in" id="geminiModel">
+          ${gemini.GEMINI_MODELS.map((m) => `<option value="${m.v}"${m.v === gemini.currentModel() ? ' selected' : ''}>${esc(m.l)}</option>`).join('')}
+        </select>
+        <span class="r-note">Das Modell bestimmt Tempo und Stärke der Antworten – direkt von Google, ohne Zwischenserver.</span>
+      </div>
       <div class="row" style="flex-direction:column;align-items:stretch;gap:9px">
         <span class="r-label">Zugriff auf deine Inhalte</span>
         <div class="seg" data-seg="geminiMode">
@@ -1007,6 +1014,14 @@ function bindSettings() {
   if (gkey) {
     gkey.addEventListener('input', () => db.setSetting('geminiApiKey', gkey.value.trim()));
     gkey.addEventListener('blur', () => db.setSetting('geminiApiKey', gkey.value.trim()));
+  }
+
+  const gsel = v.querySelector('#geminiModel');
+  if (gsel) {
+    gsel.addEventListener('change', () => {
+      db.setSetting('geminiModel', gsel.value);
+      haptic(6);
+    });
   }
 
   v.querySelectorAll('[data-seg]').forEach((seg) => {

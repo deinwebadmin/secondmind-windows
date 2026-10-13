@@ -1136,8 +1136,8 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
   flex: none;
   display: grid; place-items: center;
   background: transparent;
-  color: var(--label-3);
-  opacity: .5;
+  color: var(--icon, var(--orange));
+  opacity: .75;
   cursor: grab;
   touch-action: none;
   -webkit-tap-highlight-color: transparent;
@@ -1156,7 +1156,7 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 .check {
   width: 24px; height: 24px;
   border-radius: 50%;
-  border: 2px solid var(--label-3);
+  border: 2px solid var(--icon, var(--orange));
   flex: none;
   margin-top: 1px;
   display: grid; place-items: center;
@@ -1230,7 +1230,7 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
   width: 11px; height: 11px; border-radius: 50%;
   flex: none;
 }
-.item-linked { width: 15px; height: 15px; stroke: var(--label-3); fill: none; stroke-width: 1.8; }
+.item-linked { width: 15px; height: 15px; stroke: var(--icon, var(--label-3)); fill: none; stroke-width: 1.8; }
 
 /* Farbcodierung: färbt den ganzen Punkt bzw. Unterpunkt */
 .item.item-c-green  { background: rgba(52, 199, 89, .14); }
@@ -1246,7 +1246,8 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
   border-radius: 9px;
   display: grid; place-items: center;
   flex: none;
-  color: var(--label-3);
+  color: var(--icon, var(--orange));  /* inaktiv = Orange wie das 🏷-Tag-Icon; bei
+                                         farbigen Karten der kontrastreiche Ton */
   background: transparent;
   transition: transform 150ms var(--spring), background-color 140ms ease, color 140ms ease;
 }
@@ -1258,7 +1259,7 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 .row-btn.on.c-red    { color: var(--red); background: rgba(255, 59, 48, .14); }
 .row-btn.cal.on      { color: var(--purple); background: rgba(175, 82, 222, .15); }
 .item-open {
-  color: var(--label-3);
+  color: var(--icon, var(--orange));
   font-size: 13px;
   width: 26px; height: 26px;
   display: grid; place-items: center;

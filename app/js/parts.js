@@ -17,15 +17,50 @@ function luminance(hex) {
   return 0.2126 * r + 0.7152 * g + 0.0722 * b;
 }
 
+/* WCAG-Relative Luminanz inkl. sRGB-Gamma – Basis für echte Kontrastvergleiche.
+   (luminance() oben rechnet bewusst grob – sie dient nur der Hell/Dunkel-
+   Entscheidung der Schriftfarbe.) */
+function relLum(hex) {
+  const m = /^#?([a-f\d]{2})([a-f\d]{2})([a-f\d]{2})$/i.exec(hex || '');
+  if (!m) return 1;
+  const lin = (i) => {
+    const v = parseInt(m[i], 16) / 255;
+    return v <= 0.03928 ? v / 12.92 : ((v + 0.055) / 1.055) ** 2.4;
+  };
+  return 0.2126 * lin(1) + 0.7152 * lin(2) + 0.0722 * lin(3);
+}
+
+function contrast(a, b) {
+  const x = relLum(a);
+  const y = relLum(b);
+  return (Math.max(x, y) + 0.05) / (Math.min(x, y) + 0.05);
+}
+
+/** Grundfarbe inaktiver Button-Icons: Orange wie das Tag-Icon (🏷). */
+const ICON_ORANGE = '#ff9500';
+
 export function cardStyle(bg, extra = '') {
   if (!bg) return '';
-  const dark = luminance(bg) < 0.5;
+  const L = luminance(bg);
+  const dark = L < 0.5;
   const fg = dark ? '#fff' : '#111';
   const sec = dark ? 'rgba(255,255,255,.6)' : 'rgba(0,0,0,.55)';
   const ter = dark ? 'rgba(255,255,255,.38)' : 'rgba(0,0,0,.35)';
   const fil = dark ? 'rgba(255,255,255,.16)' : 'rgba(0,0,0,.08)';
   const sep = dark ? 'rgba(255,255,255,.2)' : 'rgba(0,0,0,.12)';
-  return `style="background:${bg};color:${fg};--label-2:${sec};--label-3:${ter};--fill:${fil};--separator:${sep}${extra ? `;${extra}` : ''}"`;
+  // Inaktive Button-Icons: Orange wie das Tag-Icon – es sei denn die
+  // Hintergrundfarbe ist diesem Ton zu ähnlich (Kontrast < 2:1, z. B. Gelb,
+  // Grün, Braun). Dann nimmt das Icon den Karten-Ton, der zur Hintergrundfarbe
+  // wirklich kontrastreich ist (mind. 3:1).
+  let icon = ICON_ORANGE;
+  if (contrast(ICON_ORANGE, bg) < 2) {
+    const Lg = relLum(bg);
+    const cWhite = 1.05 / (Lg + 0.05);
+    const cBlack = (Lg + 0.05) / 0.05;
+    const ink = fg === '#111' ? cBlack : cWhite;
+    icon = ink >= 3 ? fg : (cBlack > cWhite ? '#111' : '#fff');
+  }
+  return `style="background:${bg};color:${fg};--icon:${icon};--label-2:${sec};--label-3:${ter};--fill:${fil};--separator:${sep}${extra ? `;${extra}` : ''}"`;
 }
 
 const TPL = {

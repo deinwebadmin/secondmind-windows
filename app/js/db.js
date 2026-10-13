@@ -23,6 +23,7 @@ const DEFAULT_SETTINGS = {
   showDone: true,           // Historie im Listen-Detail anzeigen
   geminiEnabled: false,     // optionale Gemini-KI ein/aus
   geminiApiKey: '',         // Gemini-API-Key (bleibt lokal)
+  geminiModel: 'gemini-3.8-flash', // KI-Modell (Dropdown in den Einstellungen)
   geminiMode: 'custom',     // 'full' = alle Einträge | 'custom' = nur exponierte
   geminiExposedLists: [],   // exponierte Listen-IDs (Modus custom)
   geminiExposedNotes: [],   // exponierte Notiz-IDs (Modus custom)

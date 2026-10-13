@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.22.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.22/secondmind-Setup-1.0.22.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.22-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.22/secondmind-1.0.22-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.23.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.23/secondmind-Setup-1.0.23.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.23-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.23/secondmind-1.0.23-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -58,9 +58,10 @@ kompilierte APK-Signaturen in der Cloud Console – eine einzige Client-ID für 
 ## Gemini-KI einrichten (optional)
 
 secondmind kann eine optionale KI begleiten lassen: Nach deinen To-Dos fragen, eine Notiz
-zusammenfassen oder Vorschläge formulieren – angetrieben von Googles Modell
-**`gemini-2.5-flash`**. Die Funktion ist standardmäßig **aus** und lässt sich jederzeit
-wieder abschalten.
+zusammenfassen oder Vorschläge formulieren – angetrieben von Googles Gemini-Modellen.
+Welches Modell läuft, wählst du selbst: in den Einstellungen gibt es ein **Dropdown** mit
+den aktuellen Varianten (Standard: **`gemini-3.8-flash`**). Die Funktion ist standardmäßig
+**aus** und lässt sich jederzeit wieder abschalten.
 
 ### 1. API-Key besorgen (kostenlos)
 
@@ -76,7 +77,8 @@ wieder abschalten.
 1. **Einstellungen → „Gemini KI (optional)“** → **Gemini-Integration aktivieren**.
 2. Den Schlüssel ins Feld **API-Key** einfügen – er wird sofort gespeichert (masked).
    Der Key bleibt auf deinen Geräten und wird mit deinen Einstellungen über Google Drive
-   auch auf dein zweites Gerät übernommen.
+   auch auf dein zweites Gerät übernommen. Unter **Modell** wählst du danach das
+   gewünschte Gemini-Modell (Dropdown, Standard: Gemini 3.8 Flash).
 3. **Zugriff auf deine Inhalte** wählen:
    - **Nur exponierte** *(Standard)*: Die KI sieht ausschließlich Karten, die du freigibst –
      pro Karte (Liste/Notiz) sitzt neben dem Pin ein **Gemini-Sparkle-Button**:
@@ -133,7 +135,7 @@ Zusätzlich kannst du unter **Einstellungen → Daten** jederzeit ein JSON-Backu
 - **Farbcodierung** grün/gelb/rot/neutral für Punkte und Unterpunkte (Dringlichkeit).
 - **Einstellungen**: Memory an/aus, „Vor dem Löschen fragen“, Historie anzeigen, Design
   (Hell/Dunkel/Auto), Sync-Intervall, Export/Import.
-- **Optionale Gemini-KI**: Chat über deine Listen und Notizen (Modell `gemini-2.5-flash`) –
+- **Optionale Gemini-KI**: Chat über deine Listen und Notizen (Modell frei wählbar, Standard `gemini-3.8-flash`) –
   standardmäßig sieht nur, was du pro Karte mit dem Sparkle-Button neben dem Pin freigibst;
   Einrichtung siehe [Gemini-KI einrichten](#gemini-ki-einrichten-optional).
 
@@ -165,6 +167,12 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.23
+- **KI-Modell frei wählbar**: Neues Dropdown in den Einstellungen mit den aktuellen Gemini-Modellen – Standard ist **Gemini 3.8 Flash** (u. a. 3.7/3.6/3.5 Flash, Lite-Varianten, Pro-Vorschau); das veraltete `gemini-2.5-flash` entfällt ersatzlos
+- **Inaktive Buttons deutlicher**: Alle inaktiven Button-Icons in den Punktzeilen (Abhaken, Verschiebe-Griff, Farbe, Kalender, Büroklammer, Archiv, Wiederherstellen) sind jetzt Orange wie das Tag-Icon
+- **Kontrast zum Hintergrund**: Auf farbigen Karten weicht das Icon automatisch auf einen Ton mit hohem Kontrast zum Hintergrund aus (mind. ~3:1), wenn Orange der Hintergrundfarbe zu ähnlich wäre
+- **Verständlicher Fehler beim Modellwechsel**: Lässt sich ein gewähltes Modell bei Google nicht abrufen, rät secondmind, in den Einstellungen ein anderes auszuwählen
 
 ### 1.0.22
 - **In-App-Update funktioniert jetzt wirklich**: Windows lädt herunter, beendet die App sauber und installiert danach – **ohne kurzes CMD-Fenster** (der Start läuft komplett ohne Kommandozeile)

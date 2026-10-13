@@ -8,8 +8,27 @@
 
 import * as db from './db.js';
 
-const GEMINI_MODEL = 'gemini-2.5-flash';
-const GEMINI_URL = `https://generativelanguage.googleapis.com/v1beta/models/${GEMINI_MODEL}:generateContent`;
+const GEMINI_MODEL = 'gemini-3.8-flash';   // Fallback, falls nichts eingestellt
+
+/** Verfügbare Text-Modelle (Stand 10/2026) – Reihenfolge = Empfehlung. */
+export const GEMINI_MODELS = [
+  { v: 'gemini-3.8-flash', l: 'Gemini 3.8 Flash – empfohlen' },
+  { v: 'gemini-3.7-flash', l: 'Gemini 3.7 Flash' },
+  { v: 'gemini-3.6-flash', l: 'Gemini 3.6 Flash' },
+  { v: 'gemini-3.5-flash', l: 'Gemini 3.5 Flash' },
+  { v: 'gemini-3.5-flash-lite', l: 'Gemini 3.5 Flash-Lite – schnell & günstig' },
+  { v: 'gemini-3.1-flash-lite', l: 'Gemini 3.1 Flash-Lite – schnell & günstig' },
+  { v: 'gemini-3-flash-preview', l: 'Gemini 3 Flash – Vorschau' },
+  { v: 'gemini-3.1-pro-preview', l: 'Gemini 3.1 Pro – Vorschau, stärkstes Modell' },
+];
+
+/** Aktuell gewähltes Modell (Settings-Dropdown bzw. Fallback). */
+export function currentModel() {
+  const m = String(db.state.settings.geminiModel || '').trim();
+  if (m && GEMINI_MODELS.some((x) => x.v === m)) return m;
+  return GEMINI_MODEL;
+}
+const GEMINI_BASE = 'https://generativelanguage.googleapis.com/v1beta/models';
 
 /** Integration eingeschaltet und API-Key vorhanden? */
 export function isGeminiReady() {
@@ -107,7 +126,7 @@ export async function askGemini(prompt, { system } = {}) {
     generationConfig: { temperature: 0.4, maxOutputTokens: 2048 },
   };
 
-  const res = await fetch(`${GEMINI_URL}?key=${encodeURIComponent(db.state.settings.geminiApiKey.trim())}`, {
+  const res = await fetch(`${GEMINI_BASE}/${currentModel()}:generateContent?key=${encodeURIComponent(db.state.settings.geminiApiKey.trim())}`, {
     method: 'POST',
     headers: { 'Content-Type': 'application/json' },
     body: JSON.stringify(body),
@@ -125,7 +144,7 @@ export async function askGemini(prompt, { system } = {}) {
     } else if (res.status === 403) {
       hinweis = ' Zugriff verweigert – evtl. ist die „Google Generative Language API“ im Google-Projekt noch nicht aktiviert.';
     } else if (res.status === 404) {
-      hinweis = ' Das verwendete Modell ist derzeit nicht verfügbar.';
+      hinweis = ' Das gewählte Modell steht bei Google gerade nicht zur Verfügung – bitte in den Einstellungen ein anderes auswählen.';
     }
     throw new Error(`Gemini-Fehler (${res.status}): ${msg}${hinweis}`);
   }
