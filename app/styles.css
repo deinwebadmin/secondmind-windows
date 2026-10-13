@@ -1501,6 +1501,27 @@ body.item-dragging { user-select: none; -webkit-user-select: none; }
 .text-in::placeholder { color: var(--label-3); }
 .text-in:focus { background: var(--fill-2); }
 
+/* Modell-Dropdown (KI): wie die anderen Eingabefelder gefüllt – mit eigenem
+   Pfeil. Ohne appearance: none malt Windows das native, ungefüllte Widget. */
+select.text-in {
+  -webkit-appearance: none;
+  appearance: none;
+  background-color: var(--fill);
+  background-image: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 11 7'%3E%3Cpath d='M1 1l4.5 4.5L10 1' fill='none' stroke='%238E8E93' stroke-width='1.8' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 14px center;
+  background-size: 11px 7px;
+  padding-right: 34px;
+  cursor: pointer;
+}
+select.text-in:focus {
+  background-color: var(--fill-2);
+}
+select.text-in option {
+  background: var(--bg-elevated);
+  color: var(--label);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;

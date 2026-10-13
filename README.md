@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.23.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.23/secondmind-Setup-1.0.23.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.23-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.23/secondmind-1.0.23-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.24.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.24/secondmind-Setup-1.0.24.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.24-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.24/secondmind-1.0.24-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -167,6 +167,9 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.24
+- **Modell-Dropdown richtig gefärbt**: Das Auswahlfeld für das KI-Modell ist jetzt wie alle anderen Eingabefelder gefüllt dargestellt – Windows zeigte vorher das native, ungefüllte Widget; jetzt mit eigenem Pfeil und angepasster Auswahlliste
 
 ### 1.0.23
 - **KI-Modell frei wählbar**: Neues Dropdown in den Einstellungen mit den aktuellen Gemini-Modellen – Standard ist **Gemini 3.8 Flash** (u. a. 3.7/3.6/3.5 Flash, Lite-Varianten, Pro-Vorschau); das veraltete `gemini-2.5-flash` entfällt ersatzlos
