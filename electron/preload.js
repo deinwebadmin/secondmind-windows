@@ -11,4 +11,5 @@ contextBridge.exposeInMainWorld('sm', {
   decrypt: (value) => ipcRenderer.invoke('sm:decrypt', value),
   openExternal: (url) => ipcRenderer.send('sm:open-external', url),
   updateApp: (target) => ipcRenderer.invoke('sm:update-app', target),
+  pair: (cmd) => ipcRenderer.invoke('sm:pair', cmd),
 });

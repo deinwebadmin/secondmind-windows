@@ -1819,3 +1819,144 @@ select.text-in option {
   #topbar { background: var(--bg); -webkit-backdrop-filter: none; backdrop-filter: none; border-color: var(--separator); }
   .card, .group, .settings-group { border: 1px solid var(--separator); }
 }
+
+/* [hidden] muss auch dann greifen, wenn eine Klasse display setzt
+   (z. B. .status-line { display:flex }). #fab nutzt weiterhin die Klasse
+   "hidden" für die Skalierungs-Animation und bleibt davon unberührt. */
+[hidden] { display: none !important; }
+
+/* ============================================================
+   Onboarding (Willkommen)
+   ============================================================ */
+
+.welcome {
+  padding: 34px 22px 26px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+}
+.welcome-logo { width: 74px; height: 74px; margin-bottom: 18px; }
+.welcome-title { font-size: 26px; font-weight: 700; letter-spacing: -.02em; color: var(--label); }
+.welcome-sub { margin-top: 10px; font-size: 15.5px; line-height: 1.5; color: var(--label-2); max-width: 380px; }
+.welcome .btn { width: 100%; max-width: 340px; margin-top: 16px; }
+.welcome .btn + .btn { margin-top: 10px; }
+.welcome-note { margin-top: 22px; font-size: 13px; line-height: 1.5; color: var(--label-3); max-width: 360px; }
+
+/* ============================================================
+   Schlüssel & Pairing (D.5 / D.6)
+   ============================================================ */
+
+.key-card {
+  position: relative;
+  margin: 0 0 16px;
+  padding: 18px 16px 16px;
+  background: var(--card);
+  border: 1px solid var(--separator);
+  border-radius: 16px;
+}
+.key-card.need { border-color: rgba(255, 149, 0, .5); }
+.key-badge { position: absolute; top: 14px; right: 14px; font-size: 20px; line-height: 1; }
+.key-title { font-size: 17px; font-weight: 650; color: var(--label); padding-right: 30px; }
+.key-card.need .key-title { color: var(--orange); }
+.key-sub { margin-top: 8px; font-size: 14px; line-height: 1.5; color: var(--label-2); }
+.key-fp { margin-top: 12px; font-size: 13px; color: var(--label-2); }
+.key-fp code {
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  background: var(--fill);
+  padding: 2px 7px;
+  border-radius: 6px;
+  color: var(--label);
+  letter-spacing: .04em;
+}
+.key-card .btn { width: 100%; margin-top: 14px; }
+.key-card .btn + .btn { margin-top: 8px; }
+.key-note { margin-top: 12px; font-size: 12.5px; line-height: 1.5; color: var(--label-3); }
+.key-actions { display: flex; gap: 10px; flex-wrap: wrap; }
+.key-actions .btn { flex: 1 1 150px; }
+
+.qr-box { margin-top: 14px; text-align: center; }
+.qr-box:empty { display: none; }
+.qr-img {
+  width: 100%;
+  max-width: 268px;
+  height: auto;
+  padding: 10px;
+  border-radius: 14px;
+  background: #fff;
+}
+.qr-caption { margin-top: 10px; font-size: 13.5px; line-height: 1.5; color: var(--label-2); }
+.qr-sub { color: var(--label-3); }
+
+.status-line .ok { color: var(--green); }
+.status-line .err { color: var(--red); }
+
+.sas { margin-top: 14px; padding: 14px; background: var(--fill); border-radius: 12px; text-align: center; }
+.sas-label { font-size: 11.5px; text-transform: uppercase; letter-spacing: .08em; color: var(--label-2); }
+.sas-code {
+  margin-top: 6px;
+  font-size: 34px;
+  font-weight: 700;
+  letter-spacing: .22em;
+  font-variant-numeric: tabular-nums;
+  color: var(--label);
+}
+.sas-sub { margin-top: 6px; font-size: 12.5px; line-height: 1.45; color: var(--label-2); }
+
+/* Kamera-Overlay beim Scannen */
+.scan-overlay {
+  position: fixed;
+  inset: 0;
+  z-index: 999;
+  background: rgba(0, 0, 0, .9);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 18px;
+  padding: 24px;
+}
+.scan-box {
+  position: relative;
+  width: min(78vw, 320px);
+  aspect-ratio: 1;
+  border-radius: 18px;
+  overflow: hidden;
+  background: #000;
+}
+.scan-box video { width: 100%; height: 100%; object-fit: cover; }
+.scan-frame {
+  position: absolute;
+  inset: 12%;
+  border: 2px solid rgba(255, 255, 255, .92);
+  border-radius: 12px;
+}
+.scan-hint { color: #fff; font-size: 15px; }
+.scan-cancel { background: rgba(255, 255, 255, .2) !important; color: #fff !important; }
+
+/* ============================================================
+   Einstellungen: Banner und Identität
+   ============================================================ */
+
+.banner {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  margin: 0 0 12px;
+  padding: 13px 14px;
+  border-radius: 12px;
+  background: var(--fill);
+  text-align: left;
+}
+.banner.warn { background: rgba(255, 149, 0, .18); }
+.banner-ico { font-size: 17px; line-height: 1; flex: none; }
+.banner-text { flex: 1; font-size: 14.5px; font-weight: 600; color: var(--label); }
+.banner.warn .banner-text { color: var(--orange); }
+.banner .chev { font-size: 19px; color: var(--label-3); }
+
+.identity-row { flex-direction: row; justify-content: flex-start; align-items: center; gap: 12px; }
+.avatar { width: 38px; height: 38px; border-radius: 50%; object-fit: cover; flex: none; background: var(--fill); }
+.avatar.fallback { display: grid; place-items: center; font-size: 19px; }
+.identity-text { display: flex; flex-direction: column; min-width: 0; }
+.identity-text .r-label { font-weight: 600; }

@@ -13,6 +13,7 @@ import * as U from './update.js';
 import * as gemini from './gemini.js';
 import * as repeat from './repeat.js';
 import { debounce, haptic } from './util.js';
+import * as C from './crypto.js';
 
 /* ---------------- Rendering mit Fokus-Schutz ---------------- */
 
@@ -112,7 +113,7 @@ function wireGeminiBtn() {
 
 /* ---------------- Sync-Status ---------------- */
 
-const STATE_MAP = { ok: 'ok', syncing: 'syncing', offline: 'offline', error: 'error', disconnected: 'waiting', idle: 'idle' };
+const STATE_MAP = { ok: 'ok', syncing: 'syncing', offline: 'offline', error: 'error', expired: 'error', disconnected: 'waiting', idle: 'idle' };
 
 function wireSyncStatus() {
   const dot = document.querySelector('#syncBtn .dot');
@@ -124,6 +125,7 @@ function wireSyncStatus() {
       : s.state === 'syncing' ? 'Synchronisiere …'
       : s.state === 'offline' ? 'Offline – Daten bleiben lokal'
       : s.state === 'error' ? (s.message || 'Sync-Fehler')
+      : s.state === 'expired' ? 'Verbindung abgelaufen – erneut verknüpfen'
       : s.state === 'disconnected' ? 'Nicht verbunden'
       : 'Bereit';
     dot.parentElement.title = text;
@@ -131,6 +133,7 @@ function wireSyncStatus() {
   });
 
   document.getElementById('syncBtn').addEventListener('click', () => {
+    if (sync.status.expired) { navigate('#/einstellungen'); return; }
     if (!sync.status.connected) { navigate('#/einstellungen'); return; }
     sync.syncNow();
     S.toast('Synchronisation gestartet');
@@ -159,6 +162,22 @@ function updateFab(route, params) {
 
 /* ---------------- Start ---------------- */
 
+/**
+ * Onboarding-Zustand (A) ableiten:
+ * - schon gewählt (none/google) -> nichts tun
+ * - bestehende Verknüpfung -> Local-Modus nie erzwingen (A.5)
+ * - vorhandene lokale Daten ohne Verknüpfung -> Local-Modus annehmen
+ * - nichts von beidem -> frische Installation -> Begrüßungsseite
+ * @returns {boolean} true, wenn die Begrüßungsseite gezeigt werden soll
+ */
+function decideSyncMode() {
+  if (db.getSetting('syncMode')) return false;
+  if (sync.status.connected) { db.setSetting('syncMode', 'google'); return false; }
+  const hatDaten = db.allRecords().some((r) => r.id !== db.SETTINGS_ID);
+  if (hatDaten) { db.setSetting('syncMode', 'none'); return false; }
+  return true;
+}
+
 async function boot() {
   try {
     await db.loadAll();
@@ -169,7 +188,18 @@ async function boot() {
     return;
   }
 
+  // Migration: alte Klartext-Daten einmalig verschlüsseln (idempotent).
+  // Läuft vor dem ersten Interaktionsmöglichen – so gibt es kein Rennen
+  // zwischen Migrationslauf und gleichzeitigen Änderungen.
+  try { await db.migrateLocal(); } catch (e) { console.warn('Verschlüsselungs-Migration', e); }
+
+  // Identität/Tokens früh laden – der Onboarding-Zustand hängt daran.
+  try { await sync.initTokens(); } catch (e) { console.warn('Tokens konnten nicht gelesen werden', e); }
+
   applyTheme(db.getSetting('theme') || 'auto');
+
+  // A: Onboarding-Zustand bestimmen (frisch / lokal / verbunden)
+  const frisch = decideSyncMode();
 
   // Seed-Liste für wiederkehrende Aufgaben (einmalig, beim Löschen bleibt es weg)
   try { repeat.ensureRepeatList(); } catch (e) { console.warn('Repeat-Seed fehlgeschlagen', e); }
@@ -190,6 +220,11 @@ async function boot() {
   });
 
   // Routen
+  // A.1: frische Installation ohne Entscheidung -> Begrüßungsseite mit
+  // zwei Buttons. D.6: neuer Schlüssel -> "Schlüssel sichern" anbieten.
+  if (frisch) navigate('#/willkommen', { replace: true });
+  else if (C.wasKeyCreated() && !db.getSetting('keyBackupDone')) navigate('#/schluessel', { replace: true });
+
   onRoute((r) => {
     updateFab(r.name, r.params);
     if (window.__closeDrawer && !document.getElementById('drawerRoot').hidden) window.__closeDrawer();
@@ -206,7 +241,6 @@ async function boot() {
   window.secondmind = { db, sync, sheets: S, render, update: U, gemini, repeat };
 
   // Sync starten
-  await sync.initTokens();
   sync.startSync();
 
   // Beim Öffnen gleich Abgleich

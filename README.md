@@ -45,9 +45,22 @@ secondmind/
 
 Dieselbe Client-ID kannst du auf allen Geräten (Windows + Android) nutzen.
 
-**Wichtig:** Solange der OAuth-Client im Status **„Testing“** steht, läuft das Refresh-Token
-nach 7 Tagen ab (erneut verknüpfen nötig). Für dauerhaftes Anmelden den Bildschirm auf
-**„In Veröffentlichung bringen“** stellen – für den reinen Privatgebrauch völlig ausreichend.
+**Wichtig – einmal „In Veröffentlichung bringen“ (dauerhaftes Anmelden):** Solange der
+OAuth-Client im Status **„Testing“** steht, läuft das Refresh-Token nach 7 Tagen ab und du
+musst erneut verknüpfen. Deshalb:
+
+1. **APIs & Dienste → OAuth-Bestätigungs-Bildschirm** öffnen.
+2. Ganz unten **„In Veröffentlichung bringen“** („Publish app“) klicken.
+3. Google warnt, dass die App nicht geprüft wurde – **„Zurück zur Google Cloud Console“**
+   („Continue“) wählen. Die App nutzt ausschließlich dein eigenes Konto; für den
+   Privatgebrauch ist das völlig ausreichend.
+4. Danach bleibt die Anmeldung dauerhaft gültig. Erneutes Verknüpfen ist nur nötig, wenn du
+   die Verbindung selbst trennst.
+
+**Die Client-ID niemals austauschen:** Google gibt ein Refresh-Token nur an genau die
+Client-ID weiter, mit der es ausgestellt wurde. Tragst du eine andere ID ein, ist die
+Anmeldung weg – obwohl die Daten im Drive-Ordner „secondmind“ weiterhin da sind. Verwende
+deshalb auf **allen** Geräten (Windows und Android) dieselbe Client-ID.
 
 ### Warum „Desktop-App“ statt Android-Client?
 
@@ -151,6 +164,13 @@ Voraussetzungen: Node.js ≥ 20. Der Build verwendet `electron-builder` (Windows
 
 ## Sicherheit
 
+- **Ende-zu-Ende-Verschlüsselung**: Jeder Datensatz wird auf dem Gerät mit einem
+  256-Bit-Hauptschlüssel (AES-256-GCM) verschlüsselt; in Google Drive liegt ausschließlich
+  Chiffretext. Der Hauptschlüssel wird lokal aus einem Geräteschlüssel abgeleitet und
+  verlässt das Gerät nur, wenn du ihn explizit über QR-Code, Netzwerk oder `.smkey`-Datei
+  an ein zweites Gerät gibst – niemals über Google.
+- Ohne Sicherung des Schlüssels (siehe „Schlüssel & Geräte“) sind die Daten bei einem
+  Geräteverlust endgültig weg; secondmind hat keine Kopie und kann sie nicht wiederherstellen.
 - OAuth-Tokens werden mit **Windows Data Protection API** (safeStorage) verschlüsselt
   im lokalen Profil abgelegt – nicht im Klartext.
 - Standard-Scope ist `drive.file` („nur Dateien, die diese App angelegt hat“).
@@ -167,6 +187,16 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.25
+- **Ersteinrichtung mit Onboarding**: Nach der Installation fragt secondmind, ob du dich mit Google anmelden willst oder **nur lokal** nutzt – ohne Anmeldung bleibt alles auf dem Gerät, der Drive-Sync lässt sich jederzeit nachholen
+- **Identität sichtbar**: In den Einstellungen siehst du Avatar, Name und E-Mail deines verbundenen Kontos; ein Kontowechsel verworft alte Drive-Daten, statt sie mit deinen zu vermischen
+- **Abgelaufene Verbindung erkannt**: Ist die Google-Anmeldung abgelaufen, erscheint ein Banner „Verbindung abgelaufen – erneut verknüpfen“ mit einem einzigen Tipp; zuvor wird eine stille Wiederanmeldung versucht – deine Daten bleiben dabei immer erhalten
+- **Ende-zu-Ende-Verschlüsselung**: Notizen, To-Dos, Einstellungen und Anhänge werden auf dem Gerät mit einem 256-Bit-Schlüssel (AES-256-GCM, PBKDF2 mit 310.000 Runden) verschlüsselt; in Google Drive liegt ausschließlich Chiffretext
+- **Schlüssel in vier Schritten übergeben**: Direkt-QR-Code, Kamera-Scan, Netzwerk-Übergabe mit 6-stelligem Sicherheitscode oder .smkey-Datei – der Schlüssel verlässt das Gerät nur über diese Wege und **nie über Google**
+- **Sicherungspflicht für den Schlüssel**: Eine eigene Seite mahnt, den Schlüssel auf einem zweiten Gerät oder Stick zu sichern, mit Warnhinweis bis es erledigt ist
+- **Export im Klartext**: Der Export enthält alle Inhalte unverschlüsselt (inklusive Gemini-API-Key), aber **niemals** Anmelde-Token, Geräteschlüssel oder Passwörter; der Import stellt alles 1:1 wieder her, auch offline
+- **Ehrliches Schutzziel**: Die Einstellungen erklären, was der Schlüssel schützt (Inhalte auf dem Gerät und in Drive) und was nicht (Zugriff auf dein Benutzerkonto)
 
 ### 1.0.24
 - **Modell-Dropdown richtig gefärbt**: Das Auswahlfeld für das KI-Modell ist jetzt wie alle anderen Eingabefelder gefüllt dargestellt – Windows zeigte vorher das native, ungefüllte Widget; jetzt mit eigenem Pfeil und angepasster Auswahlliste

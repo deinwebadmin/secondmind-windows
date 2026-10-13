@@ -10,6 +10,8 @@ import { navigate } from './router.js';
 import { platform } from './bridge.js';
 import * as gemini from './gemini.js';
 import * as repeat from './repeat.js';
+import * as C from './crypto.js';
+import * as P from './pairing.js';
 
 const view = () => document.getElementById('view');
 
@@ -837,13 +839,16 @@ export function renderSettings() {
   const st = sync.status;
   const s = db.state.settings;
   const stats = db.stats();
+  const schluesselGesichert = !!db.getSetting('keyBackupDone');   // D.6 Warnbadge
+  const verschluesselt = C.hasKey();
 
-  const dotCls = st.state === 'ok' ? 'ok' : st.state === 'error' ? 'err'
+  const dotCls = st.state === 'ok' ? 'ok' : (st.state === 'error' || st.state === 'expired') ? 'err'
     : st.state === 'syncing' ? 'busy' : '';
   const statusText = st.state === 'syncing' ? 'Synchronisiere …'
     : st.state === 'ok' ? `Synchronisiert · ${fmtRel(st.lastSync)}`
     : st.state === 'offline' ? 'Offline – Änderungen bleiben lokal gespeichert'
     : st.state === 'error' ? (st.message || 'Fehler beim Synchronisieren')
+    : st.state === 'expired' ? 'Verbindung abgelaufen'
     : st.state === 'disconnected' ? 'Nicht verbunden'
     : 'Bereit';
 
@@ -852,11 +857,30 @@ export function renderSettings() {
 
     <div class="settings-group">
       <div class="grp-label">Google Drive</div>
+
+      ${info.expired ? `
+      <button class="banner warn" data-act="reconnect">
+        <span class="banner-ico" aria-hidden="true">⚠️</span>
+        <span class="banner-text">Verbindung abgelaufen – erneut verknüpfen</span>
+        <span class="chev" aria-hidden="true">›</span>
+      </button>` : ''}
+
       <div class="status-line"><span class="dot ${dotCls}"></span><span>${esc(statusText)}</span></div>
+
+      ${info.connected ? `
+      <div class="row identity-row">
+        ${info.picture
+          ? `<img class="avatar" src="${esc(info.picture)}" alt="" referrerpolicy="no-referrer">`
+          : '<span class="avatar fallback" aria-hidden="true">👤</span>'}
+        <span class="identity-text">
+          <span class="r-label">${esc(info.name || info.account || 'Google-Konto')}</span>
+          <span class="r-note">${esc(info.account || '')}</span>
+        </span>
+      </div>` : `
       <div class="row">
-        <span class="r-label">Konto</span>
-        <span class="r-value">${info.connected ? esc(info.account || 'verbunden') : '–'}</span>
-      </div>
+        <span class="r-label">Modus</span>
+        <span class="r-value">${esc(info.syncMode === 'google' ? 'Drive-Sync' : 'Nur lokal')}</span>
+      </div>`}
       <div class="row" style="flex-direction:column;align-items:stretch;gap:8px">
         <span class="r-label">OAuth Client-ID</span>
         <input class="text-in" id="clientId" placeholder="….apps.googleusercontent.com" value="${esc(s.clientId)}" spellcheck="false" autocapitalize="off">
@@ -871,7 +895,7 @@ export function renderSettings() {
         <span class="r-note">Standard greift nur auf den Ordner „secondmind“ zu. Wechsle auf Erweitert, wenn sich Geräte gegenseitig die Dateien nicht sehen.</span>
       </div>
       <button class="row tappable" data-act="${info.connected ? 'disconnect' : 'connect'}">
-        <span class="r-label" style="color:var(--accent)">${info.connected ? 'Verbindung trennen' : 'Mit Google verknüpfen'}</span>
+        <span class="r-label" style="color:var(--accent)">${info.connected ? 'Verbindung trennen' : 'Google Drive verknüpfen'}</span>
         <span class="chev">›</span>
       </button>
       <div class="row"><span class="r-note">${info.connected
@@ -889,6 +913,23 @@ export function renderSettings() {
         </div>
         <span class="r-note">Änderungen werden automatisch gepusht und zusätzlich im ${Number(s.syncInterval)}-Sekunden-Takt abgeglichen.</span>
       </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="grp-label">Schlüssel &amp; Verschlüsselung</div>
+      <div class="status-line">
+        <span class="dot ${verschluesselt && schluesselGesichert ? 'ok' : 'err'}"></span>
+        <span>${!verschluesselt
+          ? 'Verschlüsselung nicht verfügbar – Inhalt liegt unverschlüsselt vor'
+          : schluesselGesichert
+            ? 'Inhalte sind verschlüsselt, der Schlüssel ist gesichert'
+            : 'Inhalte sind verschlüsselt – Schlüssel noch nicht gesichert'}</span>
+      </div>
+      <button class="row tappable" data-act="goto-keys">
+        <span class="r-label" style="color:var(--accent)">Schlüssel sichern &amp; Gerät verbinden</span>
+        <span class="chev">›</span>
+      </button>
+      <div class="row"><span class="r-note">Der Schlüssel liegt nur auf deinen Geräten. Google sieht in Drive ausschließlich Chiffretext.</span></div>
     </div>
 
     <div class="settings-group">
@@ -1089,13 +1130,285 @@ export function emptyState(icon, title, sub, extra = '') {
 }
 
 export function exportData() {
-  const payload = {
-    app: 'secondmind',
-    version: 1,
-    exportedAt: new Date().toISOString(),
-    settings: { ...db.state.settings },     // Client-ID & Einstellungen übernehmen
-    records: [...db.state.records.values()],
-  };
-  download(`secondmind-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2));
-  S.toast('Export erstellt');
+  // E.3: Hinweis auf Klartext vor dem Export. Tokens, DEK und Passwörter
+  // sind nie Teil des Payloads.
+  S.confirm({
+    title: 'Daten exportieren?',
+    text: 'Der Export enthält alle Notizen, To-Dos und Einstellungen im Klartext (unverschlüsselt) – '
+      + 'auch deinen Gemini-API-Key, falls hinterlegt. Anmelde-Tokens, Geräteschlüssel und '
+      + 'Pairing-Daten sind nie enthalten. Die Datei reicht für eine vollständige Wiederherstellung.',
+    confirmLabel: 'Exportieren',
+    cancelLabel: 'Abbrechen',
+    danger: false,
+  }).then((ok) => {
+    if (!ok) return;
+    const payload = {
+      app: 'secondmind',
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      settings: { ...db.state.settings },     // Client-ID & Einstellungen übernehmen
+      records: [...db.state.records.values()],
+    };
+    download(`secondmind-export-${new Date().toISOString().slice(0, 10)}.json`, JSON.stringify(payload, null, 2));
+    S.toast('Export erstellt');
+  });
+}
+
+/* ============================================================
+   Willkommen (Onboarding)
+   ============================================================ */
+
+export function renderWelcome() {
+  view().innerHTML = `
+    <div class="welcome">
+      <img class="welcome-logo" src="assets/logo.svg" alt="">
+      <div class="welcome-title">Willkommen bei secondmind</div>
+      <div class="welcome-sub">
+        Notizen und To-Dos, die auf deinen Geräten bleiben.
+        Google Drive ist optional – es dient nur der Synchronisation zwischen
+        deinen Geräten.
+      </div>
+
+      <button class="btn" data-act="w-connect">Mit Google anmelden</button>
+      <button class="btn secondary" data-act="w-local">Nur lokal nutzen</button>
+
+      <div class="welcome-note">
+        Jederzeit änderbar in den Einstellungen. Ohne Anmeldung läuft secondmind
+        vollständig lokal weiter – nichts verlässt das Gerät.
+      </div>
+    </div>`;
+}
+
+/* ============================================================
+   Schlüssel & Geräte (D.5 Pairing, D.6 Sicherung)
+   ============================================================ */
+
+const keyBox = (sel) => view().querySelector(sel);
+
+function setLine(sel, html) {
+  const el = keyBox(sel);
+  if (!el) return;
+  el.innerHTML = html || '';
+  el.hidden = !html;          // Attribut, nicht Klasse (siehe styles.css [hidden])
+}
+
+function sasHtml(sas) {
+  if (!sas) return '';
+  return `<div class="sas">
+    <div class="sas-label">Sicherheitscode</div>
+    <div class="sas-code">${esc(sas)}</div>
+    <div class="sas-sub">Prüfe, ob das andere Gerät denselben Code zeigt. Stimmen sie nicht überein, breche ab.</div>
+  </div>`;
+}
+
+export function renderKeyScreen() {
+  const done = !!db.getSetting('keyBackupDone');
+  const mitLan = P.isLanReceiver();
+
+  view().innerHTML = `
+    <div class="view-title">Schlüssel &amp; Geräte</div>
+
+    <div class="key-card ${done ? '' : 'need'}">
+      <div class="key-badge" aria-hidden="true">${done ? '✅' : '⚠️'}</div>
+      <div class="key-title">${done ? 'Schlüssel gesichert' : 'Schlüssel noch nicht gesichert'}</div>
+      <div class="key-sub">
+        Deine Inhalte sind auf diesem Gerät mit einem 256-Bit-Schlüssel verschlüsselt.
+        Ohne Sicherung sind sie weg, wenn das Gerät verloren geht – secondmind hat
+        keine Kopie und kann sie nicht wiederherstellen.
+      </div>
+      <div class="key-fp">Fingerprint <code id="fpText">…</code></div>
+      <button class="btn" data-act="k-export">Schlüssel als .smkey-Datei sichern</button>
+      ${done ? '' : '<button class="btn secondary" data-act="k-secured">Schlüssel ist anderweitig gesichert</button>'}
+      <div class="key-note">
+        Die Sicherungsdatei niemals über Google Drive, E-Mail oder einen Messenger
+        verschicken: Wer sie besitzt, kann alle Inhalte lesen.
+      </div>
+    </div>
+
+    <div class="settings-group">
+      <div class="grp-label">Schlüssel an ein anderes Gerät geben</div>
+      <div class="grp-hint">
+        Du hältst hier den Schlüssel, das andere Gerät ist neu.
+        Gerät ohne Kamera zeigt den Code, Gerät mit Kamera scannt.
+      </div>
+      <div class="key-actions">
+        <button class="btn secondary" data-act="k-showqr">QR-Code anzeigen</button>
+        <button class="btn secondary" data-act="k-lansend">Über Netzwerk senden</button>
+      </div>
+      <div id="kQr" class="qr-box"></div>
+      <div id="kSend" class="status-line hidden"></div>
+    </div>
+
+    <div class="settings-group">
+      <div class="grp-label">Schlüssel von einem Gerät übernehmen</div>
+      <div class="grp-hint">
+        Dieses Gerät ist neu. Das Gerät <b>mit</b> dem Schlüssel zeigt den QR-Code.
+        ${mitLan ? 'Über Netzwerk zeigt dieser Rechner den Code und wartet auf die Übergabe.' : ''}
+      </div>
+      <div class="key-actions">
+        <button class="btn secondary" data-act="k-scan">QR-Code scannen</button>
+        ${mitLan ? '<button class="btn secondary" data-act="k-lanoffer">Über Netzwerk (QR anzeigen)</button>' : ''}
+        <button class="btn secondary" data-act="k-import">.smkey-Datei öffnen</button>
+      </div>
+      <div id="kQr2" class="qr-box"></div>
+      <div id="kPair" class="status-line hidden"></div>
+      <input type="file" id="smkeyPicker" accept=".smkey,application/json,.json" hidden>
+    </div>
+
+    <div class="settings-group">
+      <div class="grp-label">Was der Schlüssel schützt – und was nicht</div>
+      <div class="grp-hint">
+        Verschlüsselt sind deine Inhalte auf diesem Gerät und in Google Drive;
+        Google sieht dort nur Chiffretext. Nicht geschützt ist das Gerät selbst:
+        Wer Zugriff auf dein Benutzerkonto <i>und</i> den Schlüssel hat, sieht alles.
+      </div>
+    </div>`;
+
+  C.fingerprint().then((fp) => {
+    const el = keyBox('#fpText');
+    if (el) el.textContent = fp || '–';
+  });
+
+  const picker = keyBox('#smkeyPicker');
+  if (picker) {
+    picker.onchange = async () => {
+      const f = picker.files && picker.files[0];
+      if (!f) return;
+      setLine('#kPair', 'Schlüssel wird übernommen …');
+      try {
+        const res = await P.importKeyFile(f);
+        setLine('#kPair', `<span class="ok">Schlüssel übernommen.</span>
+          <div class="key-fp">Fingerprint <code>${esc(res.fingerprint || '')}</code></div>`);
+        S.toast('Schlüssel übernommen');
+        renderKeyScreen();
+      } catch (e) {
+        setLine('#kPair', `<span class="err">${esc(e?.message || 'Datei konnte nicht gelesen werden')}</span>`);
+      } finally {
+        picker.value = '';
+      }
+    };
+  }
+}
+
+/** Aktionen der Schlüssel-Seite (von ui.js über data-act aufgerufen). */
+export async function keyFlow(act) {
+  try {
+    if (act === 'k-export') {
+      const ok = await S.confirm({
+        title: 'Schlüssel sichern',
+        text: 'secondmind legt eine kleine Datei (.smkey) mit deinem Schlüssel an. '
+          + 'Bewahre sie auf einem USB-Stick oder einem zweiten Gerät auf – '
+          + 'niemals in Google Drive oder per E-Mail.',
+        confirmLabel: 'Datei anlegen',
+        cancelLabel: 'Abbrechen',
+        danger: false,
+      });
+      if (!ok) return;
+      const name = await P.exportKeyFile();
+      S.toast('Schlüssel gesichert: ' + name);
+      renderKeyScreen();
+      return;
+    }
+
+    if (act === 'k-secured') {
+      const ok = await S.confirm({
+        title: 'Schlüssel wirklich gesichert?',
+        text: 'Der Warnhinweis verschwindet dann dauerhaft. Ohne Sicherung sind deine '
+          + 'Daten bei einem Geräteverlust endgültig verloren.',
+        confirmLabel: 'Ja, gesichert',
+        danger: false,
+      });
+      if (!ok) return;
+      db.setSetting('keyBackupDone', true);
+      renderKeyScreen();
+      return;
+    }
+
+    if (act === 'k-showqr') {
+      setLine('#kSend', '');
+      P.showKeyQr(keyBox('#kQr'));
+      return;
+    }
+
+    if (act === 'k-scan') {
+      setLine('#kPair', 'Kamera wird geöffnet …');
+      const code = await P.scanCode();
+      if (!code) { setLine('#kPair', ''); return; }
+
+      const p = P.parsePayload(code);
+      if (p.kind === 'lan') {
+        setLine('#kPair', 'Netzwerk-Session erkannt – sende den Schlüssel …');
+        const s = await P.sendViaLan(p);
+        if (!s.ok) { setLine('#kPair', `<span class="err">${esc(s.error)}</span>`); return; }
+        setLine('#kPair', `<span class="ok">Schlüssel gesendet.</span>${sasHtml(s.sas)}`);
+        return;
+      }
+
+      const res = await P.acceptScanned(code);
+      if (!res.ok) { setLine('#kPair', `<span class="err">${esc(res.error)}</span>`); return; }
+      setLine('#kPair', `<span class="ok">Schlüssel übernommen.</span>
+        <div class="key-fp">Fingerprint <code>${esc(res.fingerprint || '')}</code></div>`);
+      S.toast('Schlüssel übernommen');
+      renderKeyScreen();
+      return;
+    }
+
+    if (act === 'k-lansend') {
+      setLine('#kSend', 'Zeige auf dem neuen Gerät „Über Netzwerk (QR anzeigen)“ und scanne den Code.');
+      const code = await P.scanCode();
+      if (!code) { setLine('#kSend', ''); return; }
+      const p = P.parsePayload(code);
+      if (p.kind !== 'lan') {
+        setLine('#kSend', '<span class="err">Das ist kein Netzwerk-Code.</span>');
+        return;
+      }
+      setLine('#kSend', 'Verbinde mich mit dem anderen Gerät …');
+      const res = await P.sendViaLan(p);
+      if (!res.ok) {
+        setLine('#kSend', `<span class="err">Nicht erreichbar.</span>
+          <div class="grp-hint">
+            Beide Geräte müssen im selben WLAN sein. Beim ersten Mal muss Windows den
+            Netzwerkzugriff erlauben. Alternativ die .smkey-Datei nutzen (unten).
+          </div>`);
+        return;
+      }
+      setLine('#kSend', `<span class="ok">Schlüssel gesendet.</span>${sasHtml(res.sas)}`);
+      return;
+    }
+
+    if (act === 'k-lanoffer') {
+      setLine('#kPair', 'Starte Netzwerk-Session …');
+      try {
+        await P.startLanOffer(keyBox('#kQr2'));
+      } catch (e) {
+        setLine('#kPair', `<span class="err">${esc(e?.message || 'Session nicht möglich')}</span>`);
+        return;
+      }
+      setLine('#kPair', 'Warte auf das andere Gerät … (max. 2 Minuten)');
+      const res = await P.waitLanOffer();
+      if (!res.ok) {
+        setLine('#kQr2', '');
+        setLine('#kPair', `<span class="err">${esc(res.error === 'timeout' ? 'Zeitüberschreitung' : res.error)}</span>
+          <div class="grp-hint">
+            Sendet das andere Gerät aus dem selben WLAN? Beim ersten Mal muss Windows den
+            Netzwerkzugriff erlauben. Alternativ die .smkey-Datei nutzen.
+          </div>`);
+        return;
+      }
+      setLine('#kQr2', '');
+      setLine('#kPair', `<span class="ok">Schlüssel übernommen.</span>
+        <div class="key-fp">Fingerprint <code>${esc(res.fingerprint || '')}</code></div>${sasHtml(res.sas)}`);
+      S.toast('Schlüssel übernommen');
+      renderKeyScreen();
+      return;
+    }
+
+    if (act === 'k-import') {
+      keyBox('#smkeyPicker')?.click();
+    }
+  } catch (e) {
+    console.error('Schlüssel-Aktion', e);
+    setLine('#kPair', `<span class="err">${esc(e?.message || 'Aktion fehlgeschlagen')}</span>`);
+    setLine('#kSend', `<span class="err">${esc(e?.message || 'Aktion fehlgeschlagen')}</span>`);
+  }
 }

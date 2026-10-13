@@ -13,6 +13,7 @@ import {
 } from './parts.js';
 import {
   renderNote, renderArchive, renderMemory, renderSettings, renderCalendar, emptyState, exportData, applyTheme, releasePreview,
+  renderWelcome, renderKeyScreen, keyFlow,
 } from './views.js';
 import { navigate, parse } from './router.js';
 import { checkForUpdate } from './update.js';
@@ -39,6 +40,8 @@ export function render() {
     case 'memory': renderMemory(); break;
     case 'einstellungen': renderSettings(); break;
     case 'kalender': renderCalendar(); break;
+    case 'willkommen': renderWelcome(); break;
+    case 'schluessel': renderKeyScreen(); break;
     default:
       if (query) renderSearch();
       else renderHome();
@@ -512,6 +515,7 @@ function handleAction(act, id, el, e) {
       return;
     }
     case 'goto-settings': navigate('#/einstellungen'); return;
+    case 'goto-keys': navigate('#/schluessel'); return;
     case 'filter-reset': homeDringend = false; homeNeuste = false; homeTag = null; renderHome(); return;
 
     /* --- Direktaktionen auf der Startseite / in der Punktzeile --- */
@@ -760,6 +764,7 @@ function handleAction(act, id, el, e) {
 
     /* --- Einstellungen --- */
     case 'connect': doConnect(); return;
+    case 'reconnect': doReconnect(); return;
     case 'disconnect': doDisconnect(); return;
     case 'sync-now':
       sync.syncNow();
@@ -769,16 +774,40 @@ function handleAction(act, id, el, e) {
     case 'import': document.getElementById('importPicker')?.click(); return;
     case 'wipe': doWipe(); return;
     case 'check-update': checkForUpdate({ manual: true }); return;
+
+    /* --- Willkommen (Onboarding) --- */
+    case 'w-connect': doConnect(goAfterWelcome); return;
+    case 'w-local':
+      db.setSetting('syncMode', 'none');
+      S.toast('Alles klar – secondmind läuft lokal');
+      goAfterWelcome();
+      return;
+
+    /* --- Schlüssel & Geräte (Pairing, Sicherung) --- */
+    case 'k-showqr':
+    case 'k-scan':
+    case 'k-lansend':
+    case 'k-lanoffer':
+    case 'k-import':
+    case 'k-export':
+    case 'k-secured':
+      keyFlow(act);
+      return;
   }
 }
 
 /* ---------------- Verbindungs-Flows ---------------- */
 
-async function doConnect() {
+/** Nach der Onboarding-Entscheidung: erst Schlüssel sichern, dann Startseite. */
+function goAfterWelcome() {
+  navigate(db.getSetting('keyBackupDone') ? '#/' : '#/schluessel');
+}
+
+async function doConnect(after = null) {
   try {
     const res = await sync.connect();
     if (res?.needsManual) {
-      openManualAuth(res.hint);
+      openManualAuth(res.hint, after);
       return;
     }
     if (res?.ok) {
@@ -786,15 +815,32 @@ async function doConnect() {
         ? 'Konto gewechselt – secondmind nutzt jetzt dieses Google-Konto'
         : 'Google Drive verbunden');
       sync.syncNow();
-      render();
+      if (after) after(); else render();
     }
   } catch (e) {
     S.toast(e.message || 'Verbindung fehlgeschlagen', { type: 'error', duration: 6000 });
-    render();
+    if (after) after(); else render();
   }
 }
 
-function openManualAuth(hint) {
+/**
+ * Banner „Verbindung abgelaufen“ (C.3): zuerst stille Wiederanmeldung
+ * (prompt=none), erst wenn Google ablehnt, kommt der interaktive Flow.
+ */
+async function doReconnect() {
+  S.toast('Versuche stille Wiederanmeldung …');
+  const res = await sync.silentReconnect();
+  if (res?.ok) {
+    S.toast('Wieder verbunden');
+    sync.syncNow();
+    render();
+    return;
+  }
+  if (res?.needsManual) { openManualAuth(res.hint); return; }
+  doConnect();
+}
+
+function openManualAuth(hint, after = null) {
   S.openSheet({
     title: 'Manuell abschließen',
     headLeft: '<span style="width:60px"></span>',
@@ -813,7 +859,7 @@ function openManualAuth(hint) {
           handle.close();
           S.toast('Google Drive verbunden');
           sync.syncNow();
-          render();
+          if (after) after(); else render();
         } catch (err) {
           S.toast(err.message || 'Fehler', { type: 'error', duration: 6000 });
         }

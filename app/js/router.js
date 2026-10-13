@@ -15,6 +15,8 @@ export function parse(hash = location.hash) {
   if (head === 'memory') return { name: 'memory', params: {} };
   if (head === 'kalender') return { name: 'kalender', params: {} };
   if (head === 'einstellungen') return { name: 'einstellungen', params: {} };
+  if (head === 'willkommen') return { name: 'willkommen', params: {} };
+  if (head === 'schluessel') return { name: 'schluessel', params: {} };
   if (head === 'suche') return { name: 'suche', params: { q: decodeURIComponent(rest.join('/') || '') } };
   return { name: 'home', params: {} };
 }

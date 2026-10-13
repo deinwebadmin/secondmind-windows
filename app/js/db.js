@@ -2,6 +2,7 @@
    Lokale Datenbank (IndexedDB) + In-Memory-Spiegel + Settings + Event-Bus. */
 
 import { uid, now, debounce } from './util.js';
+import * as C from './crypto.js';
 
 const DB_NAME = 'secondmind';
 const DB_VER = 1;
@@ -27,6 +28,8 @@ const DEFAULT_SETTINGS = {
   geminiMode: 'custom',     // 'full' = alle Einträge | 'custom' = nur exponierte
   geminiExposedLists: [],   // exponierte Listen-IDs (Modus custom)
   geminiExposedNotes: [],   // exponierte Notiz-IDs (Modus custom)
+  syncMode: '',             // '' = noch nie gewählt | 'none' = nur lokal | 'google' = Drive
+  keyBackupDone: false,     // Schlüssel-Sicherung erledigt (D.6)
 };
 
 /* ---------------- Event-Bus ---------------- */
@@ -79,12 +82,58 @@ function reqAll(store) {
   return tx(store, 'readonly', (s) => s.getAll());
 }
 
+/* ---------------- Chiffretext-Hüllen ----------------
+   Gespeichert wird immer das Envelope {id, updatedAt, type, rev, keyId, iv,
+   ct}; unverschlüsselt bleiben ausschließlich id/updatedAt/type/rev/dirty –
+   nötig für Sortierung, LWW und Filter. Klartext existiert nur im Speicher. */
+
+async function putRec(rec) {
+  if (!C.hasKey()) { await tx('records', 'readwrite', (s) => s.put(rec)); return; }
+  const env = await C.encodeRecord(rec);
+  await tx('records', 'readwrite', (s) => s.put(env));
+}
+
+async function putEnvelopes(envs) {
+  if (!envs.length) return;
+  await tx('records', 'readwrite', (s) => { for (const e of envs) s.put(e); });
+}
+
+async function encodeKv(k, v) {
+  if (!C.hasKey()) return { k, v };
+  const env = await C.encodeRecord({ id: 'kv:' + k, kind: 'kv', updatedAt: 0, v });
+  return { k, rev: env.rev, keyId: env.keyId, iv: env.iv, ct: env.ct };
+}
+
+async function decodeKv(e) {
+  if (!e) return undefined;
+  if (!e.ct) return e.v;                          // Legacy-Klartext (Migration)
+  const rec = await C.decodeRecord({
+    id: 'kv:' + e.k, type: 'kv', updatedAt: 0, iv: e.iv, ct: e.ct, keyId: e.keyId, rev: e.rev,
+  });
+  return rec ? rec.v : undefined;
+}
+
+async function putKv(k, v) {
+  const env = await encodeKv(k, v);
+  await tx('kv', 'readwrite', (s) => s.put(env));
+}
+
+async function putKvs(envs) {
+  if (!envs.length) return;
+  await tx('kv', 'readwrite', (s) => { for (const e of envs) s.put(e); });
+}
+
 /* ---------------- State ---------------- */
 
 export const state = {
   ready: false,
-  records: new Map(),   // id -> Datensatz
+  records: new Map(),   // id -> Datensatz (Klartext im Speicher)
   settings: { ...DEFAULT_SETTINGS },
+  /* Versiegelte Envelopes: Sätze, die mit dem (noch) fehlenden Schlüssel
+     nicht lesbar sind – werden aufbewahrt statt weggeworfen und nach dem
+     Pairing erneut entschlüsselt. */
+  sealed: new Map(),    // id -> Envelope
+  sealedKv: new Map(),  // kv-Schlüssel -> Envelope
 };
 
 export const recs = (kind) => [...state.records.values()].filter((r) => r.kind === kind && !r.deleted);
@@ -97,10 +146,50 @@ export function allRecords() { return [...state.records.values()]; }
 /* ---------------- Initialisierung ---------------- */
 
 export async function loadAll() {
-  const [records, kv] = await Promise.all([reqAll('records'), reqAll('kv')]);
-  for (const r of records) state.records.set(r.id, r);
+  // 1) Geräteschlüssel (DEK) laden – erst danach lässt sich lesen.
+  //    Ohne WebCrypto bleibt der Klartext-Pfad (wird in den Einstellungen gemeldet).
+  try { await C.init(); } catch (e) { console.error('Schlüssel nicht verfügbar', e); }
 
-  const map = new Map(kv.map((e) => [e.k, e.v]));
+  // 2) Datensätze entschlüsseln (versiegelte liegen bleiben)
+  await readRecordsIntoState();
+
+  // 3) Einstellungen
+  await refreshSettings();
+
+  state.ready = true;
+  emit('change', { reason: 'load' });
+  return state;
+}
+
+/** Rohdaten aus IndexedDB lesen, entschlüsseln, in den Speicher spiegeln. */
+async function readRecordsIntoState() {
+  const records = await reqAll('records');
+  state.records.clear();
+  state.sealed.clear();
+  for (const raw of records) {
+    if (C.isEncoded(raw)) {
+      const rec = await C.decodeRecord(raw);
+      if (rec) state.records.set(rec.id, rec);
+      else state.sealed.set(raw.id, raw);        // fremder/fehlender Schlüssel
+    } else {
+      state.records.set(raw.id, raw);            // Legacy-Klartext (Migration)
+    }
+  }
+}
+
+/** KV laden (inkl. Einstellungs-Singleton) und übernehmen. */
+async function refreshSettings() {
+  const kv = await reqAll('kv');
+  const map = new Map();
+  state.sealedKv.clear();
+  for (const e of kv) {
+    const v = await decodeKv(e);
+    if (v === undefined) {
+      if (e.ct) state.sealedKv.set(e.k, e);      // ohne Schlüssel unlesbar
+      continue;
+    }
+    map.set(e.k, v);
+  }
   state.settings = { ...DEFAULT_SETTINGS, ...(map.get('settings') || {}) };
 
   // Synchronisierter Settings-Datensatz: kommt er frisch aus dem Drive
@@ -117,10 +206,6 @@ export async function loadAll() {
     const customized = Object.keys(DEFAULT_SETTINGS).some((k) => state.settings[k] !== DEFAULT_SETTINGS[k]);
     if (customized) putSettingsRecord(0);
   }
-
-  state.ready = true;
-  emit('change', { reason: 'load' });
-  return state;
 }
 
 /* ---------------- Settings ---------------- */
@@ -130,10 +215,7 @@ export const getSetting = (k) => state.settings[k];
 export const setSetting = (k, v) => {
   state.settings[k] = v;
   const at = now();
-  tx('kv', 'readwrite', (s) => {
-    s.put({ k: 'settings', v: { ...state.settings } });
-    s.put({ k: 'settingsAt', v: at });
-  }).catch(() => {});
+  Promise.all([putKv('settings', { ...state.settings }), putKv('settingsAt', at)]).catch(() => {});
   putSettingsRecord(at);          // wandert über den Sync ins Drive
   emit('settings', { key: k, value: v });
 };
@@ -147,7 +229,7 @@ function putSettingsRecord(at) {
   rec.updatedAt = at;
   rec.dirty = 1;
   state.records.set(rec.id, rec);
-  tx('records', 'readwrite', (s) => s.put(rec)).catch((e) => console.error('put settings', e));
+  putRec(rec).catch((e) => console.error('put settings', e));
   notifyChange();
   notifyDirty();
 }
@@ -158,10 +240,7 @@ function applySettingsRecord(rec) {
   const next = { ...DEFAULT_SETTINGS, ...(rec.data || {}) };
   state.settings = next;
   const at = rec.updatedAt || 0;
-  tx('kv', 'readwrite', (s) => {
-    s.put({ k: 'settings', v: { ...next } });
-    s.put({ k: 'settingsAt', v: at });
-  }).catch(() => {});
+  Promise.all([putKv('settings', { ...next }), putKv('settingsAt', at)]).catch(() => {});
   for (const k of new Set([...Object.keys(before), ...Object.keys(next)])) {
     if (before[k] !== next[k]) emit('settings', { key: k, value: next[k] });
   }
@@ -170,11 +249,17 @@ function applySettingsRecord(rec) {
 /* ---------------- KV (Sonstiges: Sync-Token, Drive-IDs) ---------------- */
 
 export async function kvGet(k, fallback = null) {
-  const v = await tx('kv', 'readonly', (s) => s.get(k));
-  return v ? v.v : fallback;
+  const e = await tx('kv', 'readonly', (s) => s.get(k));
+  if (!e) return fallback;
+  const v = await decodeKv(e);
+  if (v === undefined) {
+    if (e.ct) state.sealedKv.set(k, e);          // ohne Schlüssel unlesbar
+    return fallback;
+  }
+  return v;
 }
 export function kvSet(k, v) {
-  return tx('kv', 'readwrite', (s) => s.put({ k, v })).catch((e) => console.warn('kvSet', e));
+  return putKv(k, v).catch((e) => console.warn('kvSet', e));
 }
 export function kvDel(k) {
   return tx('kv', 'readwrite', (s) => s.delete(k)).catch(() => {});
@@ -189,7 +274,8 @@ function touch(rec) {
   rec.updatedAt = now();
   rec.dirty = 1;
   state.records.set(rec.id, rec);
-  tx('records', 'readwrite', (s) => s.put(rec)).catch((e) => console.error('put', e));
+  state.sealed.delete(rec.id);                   // jetzt lesbar: versiegelt ist obsolet
+  putRec(rec).catch((e) => console.error('put', e));
   notifyChange();
   notifyDirty();
 }
@@ -207,7 +293,7 @@ export function create(kind, patch = {}) {
     ...patch,
   };
   state.records.set(base.id, base);
-  tx('records', 'readwrite', (s) => s.put(base)).catch((e) => console.error('put', e));
+  putRec(base).catch((e) => console.error('put', e));
   notifyChange();
   notifyDirty();
   return base;
@@ -253,6 +339,7 @@ export function softDelete(id) {
 /** Endgültig aus der DB entfernen (nach Sync/Import). */
 export function purge(id) {
   state.records.delete(id);
+  state.sealed.delete(id);
   tx('records', 'readwrite', (s) => s.delete(id)).catch(() => {});
   notifyChange();
 }
@@ -285,15 +372,146 @@ export function softDeleteList(listId) {
 
 /* ---------------- Blobs (Fotos & Dateien lokal) ---------------- */
 
-export function putBlob(id, blob) {
-  return tx('blobs', 'readwrite', (s) => s.put({ id, blob, at: now() })).catch((e) => console.error('blob', e));
+export async function putBlob(id, blob) {
+  try {
+    const at = now();
+    if (!C.hasKey()) { await tx('blobs', 'readwrite', (s) => s.put({ id, blob, at })); return; }
+    const bytes = new Uint8Array(await blob.arrayBuffer());
+    const env = await C.encodeBytes(bytes);
+    await tx('blobs', 'readwrite', (s) => s.put({ id, at, type: blob.type || '', ...env }));
+  } catch (e) { console.error('blob', e); }
 }
 export async function getBlob(id) {
   const r = await tx('blobs', 'readonly', (s) => s.get(id));
-  return r?.blob || null;
+  if (!r) return null;
+  if (r.ct) {
+    const bytes = await C.decodeBytes(r);         // unlesbar -> null (kein Klartext-Rückfall)
+    return bytes ? new Blob([bytes], { type: r.type || '' }) : null;
+  }
+  return r.blob || null;
 }
 export function delBlob(id) {
   return tx('blobs', 'readwrite', (s) => s.delete(id)).catch(() => {});
+}
+
+/** Eine Menge Datensätze wegschreiben (Klartext im Speicher -> Envelope). */
+async function writeAllRecords(list) {
+  if (!C.hasKey()) { await tx('records', 'readwrite', (s) => { for (const r of list) s.put(r); }); return; }
+  const envs = [];
+  for (const r of list) envs.push(await C.encodeRecord(r));
+  await putEnvelopes(envs);
+}
+
+/* ---------------- Verschlüsselung: Migration & Schlüsselübergabe ---------------- */
+
+/** Versiegelte (unlesbare) Envelopes – bleiben immer im Snapshot des Push. */
+export const sealedRecords = () => [...state.sealed.values()];
+
+/** Nicht lesbare Envelopes aus Drive aufbewahren (idempotent, kein Datenverlust). */
+export function keepSealed(envelopes) {
+  let added = 0;
+  const toWrite = [];
+  for (const env of envelopes || []) {
+    if (!env || !env.id || !C.isEncoded(env)) continue;
+    if (state.records.has(env.id)) continue;      // lokale lesbare Kopie gewinnt
+    state.sealed.set(env.id, env);
+    toWrite.push(env);
+    added++;
+  }
+  if (toWrite.length) {
+    tx('records', 'readwrite', (s) => { for (const e of toWrite) s.put(e); }).catch(() => {});
+  }
+  return added;
+}
+
+/**
+ * Migration: bestehende Klartext-Daten einmalig verschlüsseln.
+ * Idempotent – nur geschrieben wird, was noch Klartext ist. Der Nutzer kann
+ * währenddessen weiterarbeiten (eigene Transaktionen, kein Sperrfenster).
+ * @returns Anzahl umgeschriebener Einträge
+ */
+export async function migrateLocal() {
+  if (!C.hasKey()) return 0;
+  const [records, kv, blobs] = await Promise.all([reqAll('records'), reqAll('kv'), reqAll('blobs')]);
+  const recEnvs = [];
+  for (const raw of records) if (!C.isEncoded(raw)) recEnvs.push(await C.encodeRecord(raw));
+  const kvEnvs = [];
+  for (const e of kv) if (!e.ct) kvEnvs.push(await encodeKv(e.k, e.v));
+  const blobEnvs = [];
+  for (const b of blobs) {
+    if (b.ct || !b.blob) continue;
+    const bytes = new Uint8Array(await b.blob.arrayBuffer());
+    const env = await C.encodeBytes(bytes);
+    blobEnvs.push({ id: b.id, at: b.at, type: b.type || '', ...env });
+  }
+  await putEnvelopes(recEnvs);
+  await putKvs(kvEnvs);
+  if (blobEnvs.length) await tx('blobs', 'readwrite', (s) => { for (const b of blobEnvs) s.put(b); });
+  return recEnvs.length + kvEnvs.length + blobEnvs.length;
+}
+
+/** Versiegelte Sätze nach dem Vorhandensein eines Schlüssels erneut öffnen. */
+export async function redecodeSealed() {
+  let n = 0;
+  if (state.sealed.size) {
+    const raw = await reqAll('records');
+    for (const env of raw) {
+      if (!C.isEncoded(env)) continue;
+      const rec = await C.decodeRecord(env);
+      if (!rec) continue;
+      const local = state.records.get(rec.id);
+      if (local && local.updatedAt >= rec.updatedAt) { state.sealed.delete(rec.id); continue; }
+      state.records.set(rec.id, rec);
+      state.sealed.delete(rec.id);
+      n++;
+    }
+  }
+  if (state.sealedKv.size || n) await refreshSettings();
+  if (n) { notifyChange(); notifyDirty(); }
+  return n;
+}
+
+/**
+ * Schlüsselübergabe (Pairing oder Import der .smkey-Datei):
+ * erst mit dem alten Schlüssel alles lesen, dann umschalten und mit der
+ * neuen DEK neu wegschreiben – so gehen lokale Änderungen nicht verloren.
+ * @returns die vorherige DEK (Base64) oder null
+ */
+export async function adoptKey(newKeyB64) {
+  // 1) Aktuell Lesbares in den Speicher holen (alter Schlüssel aktiv)
+  const kvPlain = [];
+  for (const e of await reqAll('kv')) {
+    const v = await decodeKv(e);
+    if (v !== undefined) kvPlain.push([e.k, v]);
+  }
+  const blobPlan = [];
+  for (const b of await reqAll('blobs')) {
+    let bytes = null;
+    try {
+      if (b.ct) bytes = await C.decodeBytes(b);
+      else if (b.blob) bytes = new Uint8Array(await b.blob.arrayBuffer());
+    } catch { /* unlesbar: liegen lassen */ }
+    blobPlan.push({ id: b.id, at: b.at, type: b.type || '', bytes });
+  }
+
+  // 2) Umschalten
+  const previous = await C.adoptKey(newKeyB64);
+
+  // 3) Mit der neuen DEK neu wegschreiben
+  await writeAllRecords([...state.records.values()]);
+  await putKvs(await Promise.all(kvPlain.map(([k, v]) => encodeKv(k, v))));
+  for (const b of blobPlan) {
+    if (!b.bytes) continue;                       // unlesbarer Blob bleibt versiegelt
+    try {
+      const env = await C.encodeBytes(b.bytes);
+      await tx('blobs', 'readwrite', (s) => s.put({ id: b.id, at: b.at, type: b.type, ...env }));
+    } catch (e) { console.error('blob Re-Encode', e); }
+  }
+
+  // 4) Versiegelte Sätze mit dem neuen Schlüssel öffnen
+  await redecodeSealed();
+  notifyChange();
+  return previous;
 }
 
 /* ---------------- Sync-Bridge (vom Sync-Modul genutzt) ---------------- */
@@ -309,6 +527,7 @@ export function mergeRecords(incoming) {
     if (!local) {
       const rec = { ...defaultsFor(r.kind), ...r, dirty: 0 };
       state.records.set(rec.id, rec);
+      state.sealed.delete(rec.id);                // jetzt lesbar -> nicht mehr versiegelt
       changed = true;
       continue;
     }
@@ -319,8 +538,7 @@ export function mergeRecords(incoming) {
   }
   if (changed) {
     const all = [...state.records.values()];
-    tx('records', 'readwrite', (s) => { for (const r of all) s.put(r); })
-      .catch((e) => console.error('merge', e));
+    writeAllRecords(all).catch((e) => console.error('merge', e));
     // Einstellungen aus dem Drive übernehmen (neueres Gerät gewinnt;
     // beim Einspielen in eine frische Datenbank immer)
     const srec = state.records.get(SETTINGS_ID);
@@ -336,7 +554,7 @@ export const hasDirty = () => [...state.records.values()].some((r) => r.dirty);
 
 export function clearAllDirty() {
   for (const r of state.records.values()) r.dirty = 0;
-  tx('records', 'readwrite', (s) => { for (const r of state.records.values()) s.put(r); }).catch(() => {});
+  writeAllRecords([...state.records.values()]).catch(() => {});
 }
 
 /** Alle lokalen Daten löschen. */
@@ -345,6 +563,8 @@ export async function wipeEverything() {
     await tx(st, 'readwrite', (s) => s.clear()).catch(() => {});
   }
   state.records.clear();
+  state.sealed.clear();
+  state.sealedKv.clear();
   state.settings = { ...DEFAULT_SETTINGS };
   emit('change', { reason: 'wipe' });
 }

@@ -228,6 +228,142 @@ ipcMain.handle('sm:update-app', async (_e, target) => {
   }
 });
 
+/* ---------------- Pairing-Server (Stufe 3, LAN) ----------------
+   Kein Backend, kein Google: Für genau eine Session öffnet secondmind
+   einen eigenen Port auf 0.0.0.0, damit das Gerät im selben WLAN die
+   Schlüsselübergabe per POST vornehmen kann.
+   - zufälliger Port, genau eine Session, Stopp nach 120 s oder bei Erfolg
+   - der Server sieht nur AES-GCM-Chiffretext; das Session-Secret steht im
+     QR-Code und bleibt im Renderer, die DEK wird hier nie im Klartext gehalten
+   - für den QR-Code sammeln wir alle RFC1918-Adressen (alle Kandidaten,
+     das empfangende Gerät probiert sie der Reihe nach mit 2 s Timeout) */
+
+const os = require('os');
+const nodeCrypto = require('crypto');
+
+let pairSrv = null;
+let pairState = null;   // { secret, port, srv, received, resolver, timer }
+
+function privateIPv4() {
+  const out = [];
+  const ifs = os.networkInterfaces();
+  for (const name of Object.keys(ifs)) {
+    for (const net of ifs[name] || []) {
+      if (net.family !== 'IPv4' || net.internal) continue;
+      const ip = net.address;
+      // RFC1918: 10.0.0.0/8, 172.16.0.0/12, 192.168.0.0/16
+      if (/^10\./.test(ip) || /^192\.168\./.test(ip) || /^172\.(1[6-9]|2\d|3[01])\./.test(ip)) out.push(ip);
+    }
+  }
+  return out;
+}
+
+function stopPairing() {
+  if (!pairState) return;
+  if (pairState.timer) clearTimeout(pairState.timer);
+  if (pairState.resolver) {
+    const r = pairState.resolver;
+    pairState.resolver = null;
+    r({ ok: false, error: 'abgebrochen' });
+  }
+  if (pairState.srv) { try { pairState.srv.close(); } catch { /* egal */ } }
+  pairState = null;
+  pairSrv = null;
+}
+
+function beginPairing() {
+  stopPairing();
+  const secret = nodeCrypto.randomBytes(32).toString('base64');   // 256 Bit
+  return new Promise((resolve) => {
+    const srv = http.createServer((req, res) => {
+      const cors = {
+        'Access-Control-Allow-Origin': '*',
+        'Access-Control-Allow-Headers': 'Content-Type',
+        'Access-Control-Allow-Methods': 'POST, OPTIONS',
+      };
+      if (req.method === 'OPTIONS') { res.writeHead(204, cors).end(); return; }
+      if (req.method !== 'POST') { res.writeHead(405, cors).end(); return; }
+
+      let raw = '';
+      req.on('data', (c) => { raw += c; if (raw.length > 8192) req.destroy(); });
+      req.on('end', () => {
+        let payload = null;
+        try { payload = JSON.parse(raw); } catch { payload = null; }
+        if (!payload?.iv || !payload?.ct) { res.writeHead(400, cors).end(); return; }
+
+        res.writeHead(200, { ...cors, 'Content-Type': 'application/json' });
+        res.end(JSON.stringify({ ok: true }));
+
+        if (!pairState) return;
+        const state = pairState;
+        state.received = { ok: true, payload, secret: state.secret };
+        if (state.resolver) { const r = state.resolver; state.resolver = null; r(state.received); }
+      });
+    });
+
+    srv.on('error', () => {
+      pairState = null;
+      pairSrv = null;
+      resolve({ ok: false, error: 'Netzwerk-Port nicht verfügbar' });
+    });
+
+    srv.listen(0, '0.0.0.0', () => {
+      const port = srv.address().port;
+      pairSrv = srv;
+      pairState = {
+        secret,
+        port,
+        srv,
+        received: null,
+        resolver: null,
+        timer: setTimeout(() => {
+          if (pairState?.resolver) {
+            const r = pairState.resolver;
+            pairState.resolver = null;
+            r({ ok: false, error: 'timeout' });
+          }
+          stopPairing();
+        }, 120_000),
+      };
+      resolve({ ok: true, secret, port, ips: privateIPv4() });
+    });
+  });
+}
+
+function waitPairing() {
+  if (!pairState) return Promise.resolve({ ok: false, error: 'keine Session' });
+  if (pairState.received) return Promise.resolve(pairState.received);
+  return new Promise((resolve) => { pairState.resolver = resolve; });
+}
+
+/** Sendende Seite: alle IPv4-Kandidaten der Reihe nach, je mit 2 s Timeout. */
+async function sendPairing({ ips, port, body }) {
+  const liste = (Array.isArray(ips) ? ips : []).filter((x) => /^\d{1,3}(\.\d{1,3}){3}$/.test(String(x)));
+  const p = Number(port) || 0;
+  if (!liste.length || !p || typeof body !== 'string') return { ok: false, error: 'keine Zieladresse im QR-Code' };
+  for (const ip of liste) {
+    try {
+      const res = await fetch(`http://${ip}:${p}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },
+        body,
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) return { ok: true };
+    } catch { /* nächster Kandidat */ }
+  }
+  return { ok: false, error: 'nicht_erreichbar' };
+}
+
+ipcMain.handle('sm:pair', async (_e, cmd) => {
+  const action = cmd?.action;
+  if (action === 'begin') return beginPairing();
+  if (action === 'wait') return waitPairing();
+  if (action === 'cancel') { stopPairing(); return { ok: true }; }
+  if (action === 'send') return sendPairing(cmd);
+  return { ok: false, error: 'unbekanntes Pairing-Kommando' };
+});
+
 /* ---------------- Start ---------------- */
 
 app.whenReady().then(async () => {
@@ -246,5 +382,6 @@ app.on('window-all-closed', () => {
 
 app.on('before-quit', () => {
   if (pendingAuth) { clearTimeout(pendingAuth.timer); pendingAuth = null; }
+  stopPairing();
   if (server) { try { server.close(); } catch { /* egal */ } }
 });

@@ -160,3 +160,66 @@ export async function applyUpdate(target) {
 
 /** Kamera/Galerie: Datei-Eingabe ist plattformübergreifend identisch. */
 export const supportsFilePicker = true;
+
+/* ---------------- Pairing (Schlüsselübergabe) ---------------- */
+
+/**
+ * QR-Code mit der nativen Kamera scannen (Android-Plugin).
+ * Liefert den gescannten Text oder null – dann scannen wir über die Webcam
+ * im Renderer (Rechner ohne eigenes Kamera-Plugin).
+ */
+export async function scanQr(timeoutMs = 60_000) {
+  try {
+    if (window.sm?.scanQr) return (await window.sm.scanQr(timeoutMs)) || null;
+    const p = await nativePlugin();
+    if (p?.scanQr) return (await p.scanQr({ timeoutMs }))?.value ?? null;
+  } catch (e) {
+    console.warn('scanQr', e);
+  }
+  return null;
+}
+
+/**
+ * Pairing-Transport (Stufe 3, LAN ohne Backend und ohne Google-Dienste).
+ *   { action:'begin' }                  -> { ok, secret, port, ips }
+ *   { action:'wait' }                   -> { ok, payload:{iv,ct}, secret } | { ok:false, error }
+ *   { action:'cancel' }                 -> { ok }
+ *   { action:'send', ips, port, body }  -> { ok } | { ok:false, error }
+ *
+ * Das Senden läuft auf Android über das Plugin: dort lädt die WebView die App
+ * von https://localhost und darf von dort aus keine http-Anfrage stellen.
+ */
+export async function pairSend(cmd) {
+  try {
+    if (cmd?.action === 'send' && platform === 'android') {
+      const p = await nativePlugin();
+      if (p?.pairSend) return await p.pairSend({ ips: cmd.ips, port: cmd.port, body: cmd.body });
+      return { ok: false, error: 'Netzwerk-Pairing nicht verfügbar' };
+    }
+    if (window.sm?.pair) return await window.sm.pair(cmd);
+    if (cmd?.action === 'send') return await sendViaFetch(cmd);
+  } catch (e) {
+    console.warn('pairSend', e);
+    return { ok: false, error: e?.message || 'Pairing nicht möglich' };
+  }
+  return { ok: false, error: 'Netzwerk-Pairing wird auf dieser Plattform nicht unterstützt' };
+}
+
+/** Senden ohne Plugin (Browser/Electron-Renderer): alle Kandidaten je 2 s. */
+async function sendViaFetch({ ips, port, body }) {
+  const liste = (Array.isArray(ips) ? ips : []).filter((x) => /^\d{1,3}(\.\d{1,3}){3}$/.test(String(x)));
+  const p = Number(port) || 0;
+  if (!liste.length || !p || typeof body !== 'string') return { ok: false, error: 'keine Zieladresse im QR-Code' };
+  for (const ip of liste) {
+    try {
+      const res = await fetch(`http://${ip}:${p}/`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'text/plain' },   // text/plain: kein CORS-Preflight
+        body,
+        signal: AbortSignal.timeout(2000),
+      });
+      if (res.ok) return { ok: true };
+    } catch { /* nächster Kandidat */ }
+  }
+  return { ok: false, error: 'nicht_erreichbar' };
+}
