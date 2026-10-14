@@ -188,6 +188,13 @@ MIT
 
 ## Änderungen
 
+### 1.0.26
+- **Anmeldung läuft nicht mehr direkt in die Schlüssel-Seite**: Wurde „Mit Google anmelden" gedrückt, ohne dass eine Client-ID hinterlegt war, sprang die App trotz des Fehlers weiter zur Seite „Schlüssel & Geräte" – als wäre alles gelungen. Jetzt bleibst du auf der Begrüßungsseite und siehst, was zu tun ist
+- **Client-ID direkt nachtragen**: Ohne Google Client-ID startet keine Anmeldung; es öffnet sich beim Klick ein Eingabefeld und die Anmeldung läuft nach dem Speichern automatisch weiter
+- **OAuth Client-ID geht nicht mehr verloren**: Ein Einstellungs-Datensatz aus Google Drive, der die Client-ID nicht führt, überschreibt deinen lokal eingetragenen Wert nicht mehr mit dem Standard – dasselbe gilt für den Gemini-API-Key. Ein auf einem Gerät bewusst geleerter Wert wird weiterhin synchronisiert
+- **Gesperrte Einstellungen bleiben unangetastet**: Ist der Geräteschlüssel verloren, schreibt secondmind seine Voreinstellungen weder über deine echten Einstellungen noch nach Google Drive – deine Client-ID und dein API-Key bleiben so erhalten und sind nach dem Schlüssel-Import sofort wieder da
+- **Klarer Hinweis bei blockiertem Anmeldefenster**: Wird das Google-Fenster vom Browser blockiert, sagt secondmind das jetzt ausdrücklich, statt still zu scheitern
+
 ### 1.0.25
 - **Ersteinrichtung mit Onboarding**: Nach der Installation fragt secondmind, ob du dich mit Google anmelden willst oder **nur lokal** nutzt – ohne Anmeldung bleibt alles auf dem Gerät, der Drive-Sync lässt sich jederzeit nachholen
 - **Identität sichtbar**: In den Einstellungen siehst du Avatar, Name und E-Mail deines verbundenen Kontos; ein Kontowechsel verworft alte Drive-Daten, statt sie mit deinen zu vermischen

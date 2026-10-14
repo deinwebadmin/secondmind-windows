@@ -324,7 +324,7 @@ export async function exchangeCode(code, redirectUri) {
   return { ok: true, switched };
 }
 
-function fmtAuthError(e) {
+export function fmtAuthError(e) {
   const map = {
     access_denied: 'Anmeldung abgebrochen',
     invalid_client: 'Client-ID ungültig – bitte prüfen',

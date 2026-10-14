@@ -803,6 +803,11 @@ function goAfterWelcome() {
   navigate(db.getSetting('keyBackupDone') ? '#/' : '#/schluessel');
 }
 
+/**
+ * Verbinden. `after` läuft NUR bei Erfolg – ein Fehlschlag darf niemals
+ * weiter navigieren (sonst landet man beim Onboarding ohne Anmeldung
+ * trotzdem auf der Schlüssel-Seite, als wäre alles gelungen).
+ */
 async function doConnect(after = null) {
   try {
     const res = await sync.connect();
@@ -816,11 +821,60 @@ async function doConnect(after = null) {
         : 'Google Drive verbunden');
       sync.syncNow();
       if (after) after(); else render();
+      return;
     }
+    if (res?.error) {
+      S.toast(res.error === 'popup-blockiert'
+        ? 'Das Anmeldefenster wurde blockiert – erlaube Pop-ups für secondmind und versuche es erneut'
+        : sync.fmtAuthError(res.error) || 'Anmeldung fehlgeschlagen', { type: 'error', duration: 7000 });
+      render();
+      return;
+    }
+    render();                       // abgebrochen -> hier bleiben
   } catch (e) {
     S.toast(e.message || 'Verbindung fehlgeschlagen', { type: 'error', duration: 6000 });
-    if (after) after(); else render();
+    if (!db.getSetting('clientId')) {
+      // Ohne Client-ID startet keine Anmeldung – direkt nachtragen und
+      // den Flow danach automatisch fortsetzen.
+      openClientIdSheet(after);
+      return;
+    }
+    render();                       // Fehler -> hier bleiben, nicht weiter navigieren
   }
+}
+
+/** Client-ID nachtragen (Onboarding + Einstellungen) und ggf. Anmeldung fortsetzen. */
+function openClientIdSheet(after = null) {
+  S.openSheet({
+    title: 'Google Client-ID eintragen',
+    headLeft: '<span style="width:60px"></span>',
+    headRight: '<button class="sh-btn" data-close>Abbrechen</button>',
+    body: `
+      <p class="confirm-text">
+        Ohne eigene Client-ID kann secondmind sich nicht bei Google anmelden.
+        Trage sie ein – sie gilt dann für alle weiteren Schritte.
+      </p>
+      <input class="text-in" id="cidInput" placeholder="….apps.googleusercontent.com"
+             spellcheck="false" autocapitalize="off" autocomplete="off">
+      <span class="r-note" style="display:block;margin-top:10px">
+        Typ „Desktop-App“ in der Google Cloud Console erstellen und die Drive-API aktivieren.
+        Jeder Nutzer trägt seine eigene ID ein – alle Geräte eines Nutzers nutzen dieselbe ID.
+      </span>
+      <button class="btn" data-apply style="margin-top:14px">Speichern und fortfahren</button>`,
+    onMount(sheet, handle) {
+      const input = sheet.querySelector('#cidInput');
+      setTimeout(() => input.focus(), 60);
+      sheet.querySelector('[data-close]').onclick = () => { handle.close(); render(); };
+      sheet.querySelector('[data-apply]').onclick = () => {
+        const v = input.value.trim();
+        if (!v) { S.toast('Bitte eine Client-ID eintragen', { type: 'error' }); return; }
+        db.setSetting('clientId', v);
+        handle.close();
+        S.toast('Client-ID gespeichert');
+        doConnect(after);
+      };
+    },
+  });
 }
 
 /**

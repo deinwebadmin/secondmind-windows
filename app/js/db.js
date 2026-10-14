@@ -134,6 +134,9 @@ export const state = {
      Pairing erneut entschlüsselt. */
   sealed: new Map(),    // id -> Envelope
   sealedKv: new Map(),  // kv-Schlüssel -> Envelope
+  /* true, wenn die Einstellungen selbst unlesbar sind (Schlüssel fehlt).
+     Dann wird der lokale Default-Stand nicht als neu ins Drive gepusht. */
+  settingsSealed: false,
 };
 
 export const recs = (kind) => [...state.records.values()].filter((r) => r.kind === kind && !r.deleted);
@@ -190,6 +193,10 @@ async function refreshSettings() {
     }
     map.set(e.k, v);
   }
+  // Einstellungen unlesbar (fremder/fehlender Schlüssel): der Default-Stand
+  // darf dann nicht als "neu" ins Drive gepusht werden – sonst würden gute
+  // Einstellungen (Client-ID, Gemini-Key, …) aller anderen Geräte überschrieben.
+  state.settingsSealed = state.sealedKv.has('settings');
   state.settings = { ...DEFAULT_SETTINGS, ...(map.get('settings') || {}) };
 
   // Synchronisierter Settings-Datensatz: kommt er frisch aus dem Drive
@@ -214,6 +221,14 @@ export const getSetting = (k) => state.settings[k];
 
 export const setSetting = (k, v) => {
   state.settings[k] = v;
+  // Einstellungen unlesbar: den versiegelten kv-Satz NICHT überschreiben,
+  // sonst wäre das Original (mit Client-ID, API-Key, …) dauerhaft zerstört.
+  // Die Änderung gilt lokal in diesem Start und wird nach dem Schlüssel-
+  // import ohnehin neu geschrieben.
+  if (state.settingsSealed) {
+    emit('settings', { key: k, value: v });
+    return;
+  }
   const at = now();
   Promise.all([putKv('settings', { ...state.settings }), putKv('settingsAt', at)]).catch(() => {});
   putSettingsRecord(at);          // wandert über den Sync ins Drive
@@ -222,6 +237,10 @@ export const setSetting = (k, v) => {
 
 /** Singleton-Datensatz für die Settings anlegen/aktualisieren (dirty -> Sync trägt ihn mit). */
 function putSettingsRecord(at) {
+  // Einstellungen unlesbar (Schlüssel fehlt): der lokale Default-Stand darf
+  // nicht als neu markiert werden – sonst verdrängt er im Drive die echten
+  // Einstellungen aller Geräte (Client-ID, API-Key, …). Lokal wird gespeichert.
+  if (state.settingsSealed) return;
   const rec = state.records.get(SETTINGS_ID) || {
     id: SETTINGS_ID, kind: 'settings', createdAt: at, updatedAt: 0, deleted: 0, dirty: 1, data: {},
   };
@@ -234,13 +253,28 @@ function putSettingsRecord(at) {
   notifyDirty();
 }
 
-/** Einstellungen aus dem (neueren) synchronisierten Datensatz übernehmen. */
+/**
+ * Einstellungen aus dem (neueren) synchronisierten Datensatz übernehmen.
+ * LWW gilt nur für Felder, die der Datensatz auch wirklich führt: ein
+ * fehlendes Feld (andere App-Version, anderes Gerät) darf einen lokal
+ * gesetzten Wert – etwa die OAuth Client-ID – nicht auf den Default
+ * zurücksetzen. Ein explizit leer gesetztes Feld wird dagegen übernommen,
+ * damit ein bewusstes Löschen auf einem Gerät syncen kann.
+ */
 function applySettingsRecord(rec) {
   const before = { ...state.settings };
-  const next = { ...DEFAULT_SETTINGS, ...(rec.data || {}) };
+  const incoming = rec.data || {};
+  const next = { ...state.settings };
+  for (const k of new Set([...Object.keys(DEFAULT_SETTINGS), ...Object.keys(incoming)])) {
+    next[k] = (k in incoming) ? incoming[k] : (k in state.settings ? state.settings[k] : DEFAULT_SETTINGS[k]);
+  }
   state.settings = next;
   const at = rec.updatedAt || 0;
-  Promise.all([putKv('settings', { ...next }), putKv('settingsAt', at)]).catch(() => {});
+  // Lokal unlesbare Einstellungen nicht überschreiben (siehe setSetting):
+  // der versiegelte kv-Satz ist die einzige Kopie mit den alten Werten.
+  if (!state.settingsSealed) {
+    Promise.all([putKv('settings', { ...next }), putKv('settingsAt', at)]).catch(() => {});
+  }
   for (const k of new Set([...Object.keys(before), ...Object.keys(next)])) {
     if (before[k] !== next[k]) emit('settings', { key: k, value: next[k] });
   }
