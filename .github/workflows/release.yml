@@ -1,0 +1,41 @@
+name: Release
+
+# Läuft nur, wenn du selbst einen Tag v* pushst (nicht bei Pull Requests).
+on:
+  push:
+    tags: ['v*']
+
+permissions:
+  contents: write
+
+jobs:
+  windows:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Version prüfen (Tag == APP_VERSION == package.json)
+        shell: bash
+        run: |
+          TAG="${GITHUB_REF_NAME#v}"
+          APP=$(grep -oP "APP_VERSION = '\K[^']+" app/js/util.js)
+          PKG=$(node -p "require('./package.json').version")
+          echo "tag=$TAG app=$APP pkg=$PKG"
+          [ "$TAG" = "$APP" ] && [ "$TAG" = "$PKG" ] || { echo "::error::Versionen stimmen nicht überein"; exit 1; }
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 20
+          cache: npm
+      - run: npm ci
+      - name: Installer + Portable bauen
+        run: npx electron-builder --win --publish never
+
+      - name: Release veröffentlichen
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          V="${GITHUB_REF_NAME#v}"
+          gh release create "$GITHUB_REF_NAME" "dist/secondmind-Setup-$V.exe" "dist/secondmind-$V-portable.exe" \
+            --title "secondmind $GITHUB_REF_NAME" --generate-notes

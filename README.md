@@ -19,8 +19,8 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.26.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.26/secondmind-Setup-1.0.26.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.26-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.26/secondmind-1.0.26-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.27.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.27/secondmind-Setup-1.0.27.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.27-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.27/secondmind-1.0.27-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
@@ -201,6 +201,11 @@ MIT
 - [secondmind-android](https://github.com/deinwebadmin/secondmind-android) – dieselbe App für Android (gleiche Google-Client-ID, gleicher Drive-Ordner)
 
 ## Änderungen
+
+### 1.0.27
+
+- Release-Dateien heißen jetzt zuverlässig `secondmind-Setup-<version>.exe` und `secondmind-<version>-portable.exe` (so sucht sie die In-App-Update-Funktion)
+- Releases werden per GitHub Actions gebaut (Tag `v*`)
 
 ### 1.0.26
 - **Anmeldung läuft nicht mehr direkt in die Schlüssel-Seite**: Wurde „Mit Google anmelden" gedrückt, ohne dass eine Client-ID hinterlegt war, sprang die App trotz des Fehlers weiter zur Seite „Schlüssel & Geräte" – als wäre alles gelungen. Jetzt bleibst du auf der Begrüßungsseite und siehst, was zu tun ist
