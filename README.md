@@ -19,14 +19,28 @@ secondmind/
 ## Installation
 
 1. Aus dem Release herunterladen:
-   - [`secondmind-Setup-1.0.24.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.24/secondmind-Setup-1.0.24.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
-   - [`secondmind-1.0.24-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.24/secondmind-1.0.24-portable.exe) → läuft ohne Installation.
+   - [`secondmind-Setup-1.0.26.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.26/secondmind-Setup-1.0.26.exe) → Installation mit Startmenü-/Desktop-Verknüpfung, oder
+   - [`secondmind-1.0.26-portable.exe`](https://github.com/deinwebadmin/secondmind-windows/releases/download/v1.0.26/secondmind-1.0.26-portable.exe) → läuft ohne Installation.
 2. App starten → oben rechts der Kreis zeigt den Sync-Status.
 3. Google Drive verknüpfen (siehe unten).
 
 > Die Builds sind nicht code-signiert: Windows SmartScreen kann beim ersten Start warnen
 > („Weitere Informationen“ → „Trotzdem ausführen“).
 > Ohne Google-Verbindung läuft die App vollständig lokal weiter.
+
+## Entwicklung: gemeinsamer `app/`-Ordner
+
+Die Web-App in `app/` ist in `secondmind-windows` und `secondmind-android` identisch
+(ausgenommen `app/js/cap/`, nur Android). **Änderungen immer in `secondmind-windows` machen**
+und danach ins Schwester-Repo spiegeln:
+
+```
+node scripts/sync-app.mjs ../secondmind-android           # kopieren
+node scripts/sync-app.mjs ../secondmind-android --check   # nur prüfen
+```
+
+Beim Release `APP_VERSION` (`app/js/util.js`), `package.json` und – für Android –
+`versionCode`/`versionName` in `android/app/build.gradle` gemeinsam hochzählen.
 
 ## Google Drive einrichten (einmalig)
 
